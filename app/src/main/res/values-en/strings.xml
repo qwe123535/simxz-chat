@@ -1,0 +1,607 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  English strings. Kept 1:1 with `values/strings.xml` — same keys, same order.
+
+  House style for the English copy:
+  - sentence case, no trailing periods on short labels;
+  - no contractions (apostrophes need escaping in Android XML, and the app voice
+    is calm/neutral anyway);
+  - 「…」 quotes become “…”.
+-->
+<resources>
+    <string name="latex_compatible_source">Compatible layout · View source</string>
+    <string name="latex_show_rendered">Back to compatible layout</string>
+    <string name="latex_source_fallback">This layout is not supported yet. The complete source is shown below.</string>
+    <string name="auto_read_aloud_on">Auto read aloud is on. Tap to turn off and stop playback.</string>
+    <string name="auto_read_aloud_off">Auto read aloud is off. Tap to turn on.</string>
+    <string name="api_profiles_title">API profiles</string>
+    <string name="api_profile_current">Current profile</string>
+    <string name="api_profiles_hint">Each profile keeps its own URL, model, protocol and encrypted key. Changes save automatically; tap a profile to switch. Profiles and keys stay on this device and are excluded from chat backups.</string>
+    <string name="api_profile_selected">In use</string>
+    <string name="api_profile_key_saved">Key saved securely</string>
+    <string name="api_profile_new">New profile</string>
+    <string name="api_profile_new_hint">Start with a blank custom API profile</string>
+    <string name="api_profile_copy">Copy current profile</string>
+    <string name="api_profile_copy_hint">Keep the URL, model and key in a separate editable profile</string>
+    <string name="api_profile_rename">Rename profile</string>
+    <string name="api_profile_delete">Delete profile</string>
+    <string name="api_profile_delete_body">Delete “%1$s” and its saved key? Chats will remain. Deleting the active profile switches to another profile.</string>
+    <string name="api_profile_name_hint">For example: Everyday DeepSeek, Home server</string>
+    <string name="api_profile_save_failed">The API key could not be saved securely. Your previous settings were kept. Try again.</string>
+    <string name="reply_save_failed">The reply could not be saved. Copy its text and check available storage.</string>
+    <string name="app_name">Simple Chat</string>
+
+    <!-- ── Actions ──────────────────────────────────────── -->
+    <string name="action_cancel">Cancel</string>
+    <string name="action_save">Save</string>
+    <string name="action_delete">Delete</string>
+    <string name="action_edit">Edit</string>
+    <string name="action_close">Close</string>
+    <string name="action_copy">Copy</string>
+    <string name="action_select_text">Select text</string>
+    <string name="action_back">Back</string>
+    <string name="action_clear">Clear</string>
+    <string name="action_retry">Retry</string>
+    <string name="action_rename">Rename</string>
+    <string name="action_pin">Pin</string>
+    <string name="action_unpin">Unpin</string>
+
+    <!-- ── Labels & values ──────────────────────────────── -->
+    <string name="label_model">Model</string>
+    <string name="label_provider">Provider</string>
+    <string name="value_follow_system">Follow system</string>
+    <string name="value_light">Light</string>
+    <string name="value_dark">Dark</string>
+    <string name="conversation_default_title">New chat</string>
+
+    <!-- ── Language setting ─────────────────────────────── -->
+    <string name="settings_language">Language</string>
+    <string name="lang_chinese">简体中文</string>
+    <string name="lang_english">English</string>
+
+    <!-- ── Accent colors ────────────────────────────────── -->
+    <string name="theme_color_blue">Blue</string>
+    <string name="theme_color_green">Green</string>
+    <string name="theme_color_red">Red</string>
+    <string name="theme_color_pink">Pink</string>
+    <string name="theme_color_purple">Purple</string>
+    <string name="theme_color_brown">Brown</string>
+    <string name="theme_color_gray">Gray</string>
+    <string name="a11y_accent_color">%1$s accent color</string>
+
+    <!-- ── Errors & feedback ────────────────────────────── -->
+    <string name="error_unknown">Unknown error</string>
+    <string name="error_network">Network connection failed</string>
+    <string name="error_network_offline">Cannot reach the network. Check your connection or proxy and retry</string>
+    <string name="error_network_timeout">Connection timed out. Try again shortly</string>
+    <string name="error_network_interrupted">The connection was interrupted (server or network hiccup). Please retry</string>
+    <string name="error_network_insecure">Secure connection failed. Check your network or certificates</string>
+    <string name="error_server_busy">The service is busy or temporarily failing. Try again shortly</string>
+    <string name="error_http_status">Server returned HTTP %1$d</string>
+    <string name="error_http_unauthorized">Invalid or expired API key. Enter it again in Settings</string>
+    <string name="error_http_payment_required">Insufficient balance. Top up and retry</string>
+    <string name="error_http_forbidden">This API key has no permission for the request</string>
+    <string name="error_http_not_found">Endpoint not found. Check the Base URL and protocol channel</string>
+    <string name="error_http_too_large">The request is too large (images or history). Reduce it and retry</string>
+    <string name="error_http_rate_limited">Too many requests. Wait a moment and retry</string>
+    <string name="error_no_api_key">No API key yet. Fill it in under Settings → API, then retry.</string>
+    <string name="error_api_key_chars">The API key contains non-ASCII characters (Chinese, full-width punctuation or line breaks), which cannot be sent in a request header. Re-paste a plain ASCII key under Settings → API → API Key.</string>
+    <string name="api_key_illegal_chars">An API key may only contain visible ASCII characters; found an illegal character %1$s (pasting often brings in Chinese text, full-width punctuation or line breaks).</string>
+    <string name="error_no_model">No model selected yet. Pick one under Settings → API (tap “Test connection” to fetch a custom endpoint’s models, or enter the model id manually).</string>
+    <string name="error_request_failed">Request failed</string>
+    <string name="error_no_content">The model returned no content</string>
+    <string name="error_send_failed">Send failed: %1$s</string>
+    <string name="error_no_sendable_messages">There is no user message to send. Enter a new message or clear the outdated context summary and try again.</string>
+    <string name="conversation_load_failed">Could not open conversation: %1$s</string>
+    <string name="error_write_failed">Could not write to the chosen location</string>
+    <string name="error_delete_failed">Delete failed: %1$s</string>
+    <string name="error_import_failed">Import failed: %1$s</string>
+    <string name="export_done">Exported to the chosen location</string>
+    <string name="export_preparing_progress">Preparing backup: %1$d%%</string>
+    <string name="export_saving_progress">Saving file: %1$d%%</string>
+    <string name="error_export_attachment_missing">Some original images could not be read. Check the attachments and try again.</string>
+    <string name="export_failed">Export failed: %1$s</string>
+    <string name="export_failed_short">Export failed</string>
+    <string name="import_read_failed">Could not read the file</string>
+    <string name="list_separator">; </string>
+    <string name="import_note_separator"> | </string>
+
+    <!-- ── Settings: root page ──────────────────────────── -->
+    <string name="settings_title">Settings</string>
+    <string name="settings_data">Data management</string>
+    <string name="settings_api">API</string>
+    <string name="settings_presets">Presets</string>
+    <string name="settings_font_size">Font size</string>
+    <string name="settings_about">About</string>
+    <string name="settings_group_account">Account</string>
+    <string name="settings_group_personal">Personal</string>
+    <string name="settings_group_backup">Backup</string>
+    <string name="settings_group_diagnostics">Diagnostics</string>
+    <string name="settings_group_reset">Reset</string>
+    <string name="settings_group_service">Service</string>
+    <string name="settings_group_auth">Auth</string>
+    <string name="settings_group_presets">Prompt library</string>
+    <string name="settings_data_summary">Import · Export · Clear</string>
+    <string name="settings_appearance">Appearance</string>
+    <string name="settings_accent">Accent color</string>
+    <string name="settings_auto_collapse">Auto-collapse thinking</string>
+    <string name="generation_channel">Generation progress</string>
+    <string name="generation_running_title">Generating reply</string>
+    <string name="settings_about_title">About SimpleChat</string>
+    <string name="settings_export_all">Export all data</string>
+    <string name="settings_export_all_summary">Exports conversations, messages and all versions</string>
+    <string name="settings_import_all">Import all data</string>
+    <string name="settings_import_all_summary">Supports the Chatbox format; merge or overwrite</string>
+    <string name="settings_delete_all">Delete all conversations</string>
+    <string name="settings_destructive_hint">Cannot be undone</string>
+    <string name="settings_delete_all_title">Delete all conversations?</string>
+    <string name="settings_delete_all_body">All conversations, messages and versions will be erased and cannot be recovered. Consider exporting a backup first.</string>
+    <string name="settings_delete_all_confirm">Delete all</string>
+    <string name="settings_delete_all_done">All conversations deleted</string>
+
+    <!-- ── Settings: API ────────────────────────────────── -->
+    <string name="api_test">Test connection</string>
+    <string name="api_testing">Testing…</string>
+    <string name="api_key_unset">Not set</string>
+    <string name="api_test_ok">Connected, %1$d models available</string>
+    <string name="api_test_failed">Connection failed: %1$s</string>
+    <string name="api_model_unset">Not set</string>
+    <string name="api_model_empty_hint">No models yet. Tap “Test connection” to fetch this endpoint’s models, or enter one manually.</string>
+    <string name="api_model_manual">Enter model manually</string>
+
+    <!-- ── Settings: import & export ────────────────────── -->
+    <string name="import_reading">Reading… (large files take a while)</string>
+    <string name="import_working">Importing…</string>
+    <string name="import_progress">%1$d%% processed</string>
+    <string name="import_mode_title">Import mode</string>
+    <string name="import_mode_merge">Add new only (skip conversations already here)</string>
+    <string name="import_mode_replace_same">Overwrite same name (replace them with the file)</string>
+    <string name="import_mode_rename">Keep both (imported one gets a copy suffix)</string>
+    <string name="import_done">Imported from %1$s: %2$d conversations · %3$d messages</string>
+    <string name="import_partial">Import incomplete (%1$s): %2$d conversations · %3$d messages saved. Check the import report.</string>
+    <string name="import_index_unverified"> · Archive index could not be verified; the session list may be incomplete</string>
+    <string name="import_repaired_messages"> · Preserved and repaired %1$d orphaned or cyclic messages</string>
+    <string name="import_report_export">Export latest import report</string>
+    <string name="import_report_hint">Review each conversation’s import status and any failure reasons</string>
+    <string name="crash_report_export">Export latest crash diagnostics</string>
+    <string name="crash_report_hint">Device, version and stack frames only; no chat content or API keys</string>
+    <string name="crash_report_missing">No crash diagnostic record is available</string>
+    <string name="import_report_missing">No import report is available. Import a backup first.</string>
+    <string name="large_message_paged">Long message shown in pages. Full text is saved.</string>
+    <string name="large_message_reasoning">Reasoning</string>
+    <string name="page_previous">Previous</string>
+    <string name="page_next">Next</string>
+    <string name="import_done_expected"> · %1$d conversations in the archive</string>
+    <string name="import_done_duplicates"> · %1$d already present</string>
+    <string name="import_done_failed"> · %1$d could not be imported: %2$s</string>
+    <string name="import_fail_item">%1$s ×%2$d</string>
+    <string name="import_failed_titles"> (%1$s)</string>
+    <string name="import_fail_too_large">conversation file too large</string>
+    <string name="import_fail_unreadable">conversation file damaged</string>
+    <string name="import_fail_empty">no importable messages</string>
+    <string name="import_fail_broken_tree">message tree malformed</string>
+    <string name="import_fail_missing_entry">conversation file missing from archive</string>
+    <string name="import_fail_write_failed">write failed</string>
+    <string name="err_archive_damaged">The archive is incomplete or damaged (interrupted download?). Export it again and retry</string>
+
+    <!-- ── Settings: presets ────────────────────────────── -->
+    <string name="preset_count_empty">None</string>
+    <string name="preset_count">%1$d</string>
+    <string name="preset_empty">No presets yet</string>
+    <string name="preset_new">New preset</string>
+    <string name="preset_new_hint">Tick them in the chat settings as needed</string>
+    <string name="preset_order_hint">Concatenated before the conversation prompt, in tick order.</string>
+    <string name="preset_delete_action">Delete preset</string>
+    <string name="preset_delete_title">Delete preset “%1$s”?</string>
+    <string name="preset_delete_body">Conversations using it will drop it automatically; their content is untouched.</string>
+    <string name="preset_edit">Edit preset</string>
+    <string name="preset_name_hint">Name, e.g. “Third-person narration”</string>
+    <string name="preset_body_hint">Prompt body. Spell out what the model must do and what it must avoid.</string>
+
+    <!-- ── Settings: font size ──────────────────────────── -->
+    <string name="font_step_small">Small</string>
+    <string name="font_step_smaller">Smaller</string>
+    <string name="font_step_standard">Standard</string>
+    <string name="font_step_larger">Larger</string>
+    <string name="font_step_large">Large</string>
+    <string name="font_step_largest">Largest</string>
+    <string name="font_preview_label">Preview text size</string>
+    <string name="font_scale_hint">Affects chat text, thinking content and all interface text.</string>
+
+    <!-- ── Settings: about ──────────────────────────────── -->
+    <string name="about_version">Version</string>
+    <string name="about_update">Update</string>
+    <string name="about_check_update">Check for updates</string>
+    <string name="about_current_version">Current v%1$s</string>
+    <string name="update_new_title">New version %1$s</string>
+    <string name="update_up_to_date">Up to date</string>
+    <string name="update_failed">Check failed</string>
+    <string name="update_open">Open download</string>
+    <string name="about_package">Package</string>
+    <string name="about_project">Project</string>
+    <string name="about_project_url">Repository</string>
+    <string name="about_licenses">Open-source licenses</string>
+    <string name="licenses_count">%1$d components</string>
+    <string name="licenses_third_party">Third-party components</string>
+    <string name="licenses_reference_title">References</string>
+    <string name="credit_deepseek_demo">DeepSeek Chat Demo — chat history import</string>
+    <string name="license_version">Version</string>
+    <string name="license_type">License</string>
+    <string name="license_copyright">Copyright</string>
+    <string name="license_project">Project page</string>
+    <string name="license_full_text">License text</string>
+    <string name="about_icon">Icon</string>
+    <string name="about_libs_net">Networking &amp; serialization</string>
+    <string name="about_libs_storage">Storage &amp; UI</string>
+    <string name="about_libs_parsing">Parsing &amp; highlighting</string>
+    <string name="about_libs_crypto">Encryption</string>
+    <string name="about_libs_math">Math</string>
+    <string name="about_libs_diagram">Diagrams</string>
+    <string name="about_ai_disclaimer">Generated content comes from the model; use your own judgement.</string>
+
+    <!-- ── Conversations ────────────────────────────────── -->
+    <string name="conversation_fork_suffix">(copy)</string>
+    <string name="conversation_fork_suffix_n">(copy %1$d)</string>
+
+    <!-- ── Chat page ────────────────────────────────────── -->
+    <string name="chat_export_empty">This conversation is not saved yet; there is nothing to export</string>
+    <string name="chat_scroll_bottom">Scroll to bottom</string>
+    <string name="chat_banner_close">Dismiss</string>
+    <string name="chat_vision_unsupported">“%1$s” cannot read images. Switch to a vision-capable model in the thinking menu first (e.g. DeepSeek V4.1 Flash).</string>
+    <string name="msg_edit_input">Edit input</string>
+    <string name="msg_delete_title">Delete this message?</string>
+    <string name="msg_delete_body">All versions of this message are deleted together. This cannot be undone.</string>
+
+    <!-- ── Attachments ──────────────────────────────────── -->
+    <string name="attach_read_failed">Could not read the attachment</string>
+    <string name="attach_camera_file_failed">Could not create the camera file</string>
+    <string name="attach_default_text_name">Untitled.txt</string>
+    <string name="err_image_too_big">Image exceeds 24MB; compress it first</string>
+    <string name="err_image_read">Could not read this image</string>
+    <string name="err_file_read">Could not read this file</string>
+    <string name="err_file_too_big">File too large (over %1$dKB)</string>
+    <string name="err_not_plain_text">This does not look like a plain-text file</string>
+    <string name="err_text_too_long">Text too long (%1$d characters, limit %2$d)</string>
+    <string name="err_file_empty">The file is empty</string>
+    <string name="err_doc_legacy">Legacy .doc / .xls is not supported; save it as .docx first</string>
+    <string name="err_pdf_too_big">PDF exceeds 40MB; split it first</string>
+    <string name="err_pdf_open">Could not open this PDF</string>
+    <string name="err_pdf_no_pages">This PDF has no pages</string>
+    <string name="pdf_page_name">%1$s · page %2$d</string>
+    <string name="warn_pdf_truncated">The PDF has %1$d pages; only the first %2$d were taken (about 1024 tokens each, more would blow up the context)</string>
+    <string name="err_docx_not_zip">This is a zip archive but not a .docx document (word/document.xml not found)</string>
+    <string name="err_docx_too_big">File exceeds 40MB; make it smaller first</string>
+    <string name="err_docx_empty">No readable text in this docx</string>
+    <string name="err_docx_too_long">Document too long (%1$d characters, limit %2$d)</string>
+
+    <!-- ── Model list / stats / compaction ──────────────── -->
+    <string name="models_fetched">Fetched %1$d models</string>
+    <string name="models_fetch_failed">Fetch failed: %1$s</string>
+    <string name="models_fetch_needs_key">(API key required first)</string>
+    <string name="compact_too_few">Not enough messages to compact yet.</string>
+    <string name="compact_failed">Compaction failed</string>
+    <string name="compact_failed_detail">Compaction failed: %1$s</string>
+
+    <!-- ── Providers ────────────────────────────────────── -->
+    <string name="provider_name_deepseek">DeepSeek official</string>
+    <string name="provider_name_opencode">OpenCode Go</string>
+    <string name="provider_name_custom">Custom</string>
+
+    <!-- ── Conversation modes & reasoning ───────────────── -->
+    <string name="mode_creative_title">Writing mode</string>
+    <string name="mode_roleplay_title">Roleplay mode</string>
+    <string name="mode_creative_empty">Write prose</string>
+    <string name="mode_roleplay_empty">Advance the plot</string>
+    <string name="mode_creative_caption">AI writes the prose, keeping voice and point of view consistent</string>
+    <string name="mode_roleplay_caption">AI role-plays the characters, advancing the plot through dialogue and action</string>
+    <string name="reasoning_off">Off</string>
+    <string name="reasoning_high">high</string>
+    <string name="reasoning_max">max</string>
+
+    <!-- ── Conversation list groups ─────────────────────── -->
+    <string name="group_pinned">Pinned</string>
+    <string name="group_today">Today</string>
+    <string name="group_yesterday">Yesterday</string>
+    <string name="group_week">Past 7 days</string>
+    <string name="group_older">Earlier</string>
+
+    <!-- ── Markdown rendering ───────────────────────────── -->
+    <string name="md_code_label">Code</string>
+    <string name="md_line_count">· %1$d lines</string>
+    <string name="md_copied">Copied</string>
+    <string name="md_copy_code">Copy code</string>
+    <string name="md_collapse">Collapse</string>
+    <string name="md_expand_all">Expand all (%1$d lines)</string>
+    <string name="md_image">Image</string>
+
+    <!-- ── Message index rail ───────────────────────────── -->
+    <string name="msg_index_empty">(no content)</string>
+    <string name="msg_index_attachments">(%1$d attachments)</string>
+    <string name="msg_index_image">(image)</string>
+    <string name="msg_index_file">(file · %1$s)</string>
+
+    <!-- ── Backup: sources & import feedback ────────────── -->
+    <string name="backup_source_simplechat">SimpleChat backup</string>
+    <string name="backup_source_chatbox">Chatbox backup</string>
+    <string name="backup_source_deepseek">DeepSeek export</string>
+    <string name="err_deepseek_version">This DeepSeek archive is version %1$d; this app reads version %2$d</string>
+    <string name="images_skipped_no_vision">This model does not accept images; %1$d skipped</string>
+    <string name="images_skipped_unreadable">Skipped %1$d image(s): unsupported or damaged file</string>
+    <string name="warn_deepseek_limited">Search steps, link reading and non-image files were not imported</string>
+    <string name="err_unrecognised_file">Unrecognised file: neither a zip archive nor JSON</string>
+    <string name="err_unrecognised_format">Unrecognised file (format=%1$s)</string>
+    <string name="err_scratch_dir">Temp directory unavailable: %1$s</string>
+    <string name="err_no_manifest">No manifest.json in the zip; this does not look like a Chatbox backup</string>
+    <string name="err_manifest_parse">Failed to parse manifest.json</string>
+    <string name="err_not_chatbox">Not a Chatbox backup (format=%1$s)</string>
+    <string name="err_no_sessions">No importable conversations in this backup</string>
+    <string name="err_not_our_backup">Not a backup from this app (format=%1$s)</string>
+    <string name="warn_dropped_images">%1$d image(s) could not be retrieved (missing from the archive)</string>
+    <string name="warn_single_branch">Chatbox: only the branch in view was imported (its fork semantics differ, so forks were not expanded)</string>
+    <string name="import_image_name">Image %1$d×%2$d</string>
+    <string name="import_image_default_name">Imported image</string>
+    <string name="import_conversation_default">Imported conversation</string>
+
+    <!-- ── Markdown export template ─────────────────────── -->
+    <string name="export_unknown_model">Unknown model</string>
+    <string name="export_meta">%1$d messages · exported %2$s</string>
+    <string name="export_scope_note">Current branch and active versions only; thinking content excluded</string>
+    <string name="export_role_me">Me</string>
+    <string name="export_role_ai">AI</string>
+    <string name="export_image_attachment">🖼 Image attachment: %1$s (%2$d×%3$d, image data not included in the text export)</string>
+    <string name="export_attachment">Attachment: %1$s</string>
+
+    <!-- ── Built-in presets (seeded into the database) ──── -->
+    <string name="preset_novel_name">Fiction</string>
+    <string name="preset_novel_body">You are a fiction writing partner with literary judgement. Write fiction with me; do not take over, and do not drag me towards wish-fulfilment and formula. Respect my point of view, tense, voice and setting. Help me see the characters\' desires and shadows, the roots of conflict, the air of a scene, and the rhythm of sentences. When you can continue, just write: no recap of what came before, no explaining intent. Do not rush towards uplift, do not let characters lecture, do not use pretty empty sentences. When the setting is unclear, ask me first; when I say to just write, make reasonable assumptions and flag them in one line at the start.</string>
+    <string name="preset_prose_name">Prose</string>
+    <string name="preset_prose_body">You are a prose writing partner who understands the weight of memory and silence. Help me turn personal experience into writing, not into descriptions of emotion. Enter through concrete people, objects, smells, light and motion, and let meaning seep out of the detail. Keep my voice, my hesitations and my cracks; do not invent experiences of mine, do not sentimentalise, do not force quotable lines. When revising my sentences, prefer restraint and precision over ornament.</string>
+    <string name="preset_poem_name">Poetry</string>
+    <string name="preset_poem_body">You are a contemporary poetry writing partner. Write poems with me; do not turn poems into line-broken prose, and do not turn them into philosophical slogans. Treat image, sound, breath and white space as materials. Ambiguity, fracture, leaps and incompletion are allowed. Give me versions in different voices, but do not take away my core images. Explain less; let the language speak for itself.</string>
+
+    <!-- ── Prompts sent to the model ─────────────────────── -->
+    <string name="prompt_title_system">You name conversations. Summarise what this conversation is about in at most 5 words. Output the title only: no quotes, no book-title marks, no trailing punctuation, no explanation or prefix.</string>
+    <string name="prompt_compact_system">You are a context compressor for long-form creative writing. Compress the conversation log the user gives you into a recap.\n\nAlways keep:\n1. Every character name, form of address, and changes in kinship and relationships\n2. Place names, times, and scene/setting details\n3. Key plot events that already happened, and their cause and effect\n4. Style conventions already established (person, point of view, tone, taboos)\n5. Foreshadowing and suspense not yet resolved\n\nRules:\n- Use declarative prose, not dialogue\n- Do not evaluate, do not continue the story, and do not write meta lines such as “this was a summary”\n- Keep it within 10% of the original length\n- Output the recap body directly</string>
+    <string name="prompt_recap_intro">Below is a recap of the earlier conversation, to keep settings and plot consistent. Do not repeat it; just continue.\n\n</string>
+    <string name="prompt_compact_existing">[Existing recap]\n</string>
+    <string name="prompt_compact_new">\n\n[New conversation since]\n</string>
+    <string name="prompt_user_prefix">User: </string>
+    <string name="prompt_ai_prefix">AI: </string>
+    <string name="prompt_has_image">(this message contains an image)</string>
+    <string name="prompt_role_user">[User]</string>
+    <string name="prompt_role_assistant">[Assistant]</string>
+
+    <!-- ==== from group g2 ==== -->
+<!-- Input bar (InputBar) -->
+    <string name="input_hint">Send a message</string>
+    <string name="input_cancel_edit">Cancel editing</string>
+    <string name="input_settings">Chat settings</string>
+    <string name="input_thinking">Thinking level</string>
+    <string name="input_stop">Stop generating</string>
+    <string name="input_send">Send</string>
+    <string name="input_attach_collapse">Collapse the attachment menu</string>
+    <string name="input_attach_add">Add images or files</string>
+
+    <!-- Panel 1: thinking level + model list -->
+    <string name="input_model_unsupported">Not supported by this model</string>
+    <string name="input_thinking_hint">The higher the level, the longer the model thinks before answering, and the more time and cost it takes.</string>
+    <string name="input_thinking_unsupported">The current model does not support thinking. Switch models to use it.</string>
+    <string name="models_refresh">Fetch the list</string>
+    <string name="models_refreshing">Fetching…</string>
+    <string name="models_empty">No model list yet. Tap the top right to fetch it.</string>
+    <string name="model_tag_vision">Vision</string>
+    <string name="model_tag_thinking">Thinking</string>
+    <string name="model_current">Current model</string>
+
+    <!-- Panel 2: context usage + chat statistics -->
+    <string name="stats_context_usage">Context usage</string>
+    <string name="stats_tokens_estimate">%1$s / %2$s tokens (estimated)</string>
+    <string name="stats_compacted_saving">Compaction saved about %1$s tokens</string>
+    <string name="stats_title">Conversation statistics</string>
+    <string name="stats_total_tokens">Total local content</string>
+    <string name="stats_message_count">Messages</string>
+    <string name="stats_messages">%1$d</string>
+    <string name="stats_avg_ttft">Average time to first token</string>
+    <string name="stats_avg_tps">Average generation speed</string>
+    <string name="stats_total_thinking">Total thinking time</string>
+    <string name="stats_cache_hit">Prompt cache hit (latest)</string>
+    <string name="stats_cache_hit_value">%1$s / %2$s · %3$d%%</string>
+    <string name="stats_seconds">%1$d seconds</string>
+
+    <!-- Context compaction -->
+    <string name="compact_title">Context compaction</string>
+    <string name="compact_note">Only affects what is sent to the model; local messages are not affected.</string>
+    <string name="compact_running">Generating the recap…</string>
+    <string name="compact_summarized">Earlier conversation summarized</string>
+    <string name="compact_redo">Compact again</string>
+    <string name="compact_discard">Discard</string>
+    <string name="compact_start">Compact context</string>
+    <string name="compact_desc">Summarizes the earlier conversation and keeps the last 6 messages in full.</string>
+
+    <!-- Panel 4: chat settings -->
+    <string name="input_conversation_name">Conversation name</string>
+    <string name="input_conversation_name_hint">Give this conversation a name</string>
+    <string name="input_system_prompt">System prompt</string>
+    <string name="input_preset_count">%1$d/%2$d presets</string>
+    <string name="input_extra_prompt">Conversation prompt</string>
+    <string name="input_extra_prompt_hint">Setup for this conversation, concatenated after the presets</string>
+    <string name="input_prompt_preview">Preview the final prompt</string>
+    <string name="input_prompt_empty">Final prompt: empty</string>
+    <string name="input_prompt_blank">(No presets enabled and no conversation prompt)</string>
+    <string name="input_sampling">Sampling parameters</string>
+    <string name="input_param_temperature">Temperature</string>
+    <string name="input_param_temp_disabled">Controlled by the server in thinking mode; has no effect</string>
+    <string name="input_param_top_p_disabled">Only takes effect in thinking mode</string>
+    <string name="input_export_title">Export this conversation</string>
+    <string name="input_export_hint">Markdown document or JSON backup</string>
+    <string name="input_export">Export</string>
+    <string name="input_export_markdown">Markdown document</string>
+    <string name="input_export_json">JSON backup</string>
+
+
+    <!-- ==== from group g3 ==== -->
+<!-- ── Message list / message actions ─────────────────────── -->
+    <string name="msg_regenerate">Regenerate</string>
+    <string name="reply_waiting">Loading</string>
+    <string name="msg_continue">Continue generating</string>
+    <string name="msg_fork_from_here">Start a new chat from here</string>
+    <string name="msg_expand_all">Expand all</string>
+    <string name="msg_variant_prev">Previous version</string>
+    <string name="msg_variant_next">Next version</string>
+    <string name="msg_edit_title">Edit reply</string>
+    <string name="msg_save_and_send">Save and send</string>
+    <string name="msg_index_no_messages">No messages yet</string>
+
+    <!-- ── Process panel ─────────────────────────────────────── -->
+    <string name="process_collapse">Collapse</string>
+    <string name="process_expand">Expand</string>
+
+    <!-- ── Attachments ───────────────────────────────────────── -->
+    <string name="attach_remove">Remove attachment</string>
+    <string name="attach_char_count">%1$d characters</string>
+    <string name="attach_camera">Camera</string>
+    <string name="attach_gallery">Photos</string>
+    <string name="attach_file">File</string>
+    <string name="attach_viewer_multi"> (this message has %1$d images, only the first is enlarged)</string>
+
+    <!-- ── Top bar ───────────────────────────────────────────── -->
+    <string name="topbar_history">Chat history</string>
+    <string name="topbar_new_chat">New chat</string>
+
+    <!-- ── Empty state ───────────────────────────────────────── -->
+    <string name="empty_greeting">Let\'s chat and start creating</string>
+
+
+    <!-- ==== from group g4 ==== -->
+<!-- ── Drawer (history) ─────────────────────────────── -->
+    <string name="hist_empty">No conversations yet</string>
+    <string name="hist_selected_count">Selected %1$d items</string>
+    <string name="hist_multi_select">Select multiple</string>
+
+    <!-- ── Rename / delete confirmation dialogs (RootScreen) ── -->
+    <string name="hist_rename_title">Rename conversation</string>
+    <string name="hist_delete_title">Once deleted, this conversation cannot be recovered</string>
+    <string name="hist_delete_body">All messages and versions in this conversation will be removed as well</string>
+    <string name="hist_delete_confirm">Delete this conversation</string>
+    <string name="hist_delete_selected_title">Once deleted, these %1$d conversations cannot be recovered</string>
+    <string name="hist_delete_selected_body">All their messages and versions will be removed as well</string>
+
+    <!-- ── Full-screen search page ──────────────────────── -->
+    <string name="search_hint">Search conversation content…</string>
+    <string name="search_prompt">Enter keywords to search titles and message text</string>
+    <string name="search_no_result">No matching conversations or messages</string>
+
+    <!-- ═══════════════════════════════════════════════════════
+         Extended channel (Anthropic-compatible, mirrors the official chat demo)
+         ═══════════════════════════════════════════════════════ -->
+
+    <!-- Smart search / link reading -->
+    <string name="web_search">Smart search</string>
+    <string name="web_search_on">Smart search on</string>
+    <string name="web_search_off">Smart search off</string>
+    <string name="search_searching">Searching…</string>
+    <string name="search_image_searching">Searching images…</string>
+    <string name="search_intro">Search</string>
+    <string name="search_found_one">Found 1 page</string>
+    <string name="search_found_many">Found %1$d pages</string>
+    <string name="search_read_one">Read 1 page</string>
+    <string name="search_read_many">Read %1$d pages</string>
+    <string name="search_failed">Web search is unavailable</string>
+    <string name="search_no_content">Nothing relevant found</string>
+    <string name="search_message_no_content">No relevant results</string>
+    <string name="search_stopped">Search stopped</string>
+    <string name="search_deep_searching">Searching</string>
+    <string name="search_open_one">Browsed 1 page</string>
+    <string name="search_open_many">Browsed %1$d pages</string>
+    <string name="search_open_failed">Could not open pages</string>
+    <string name="search_open_failed_tip">Failed</string>
+    <string name="search_find_keyword">Keyword lookup</string>
+    <string name="search_find_failed">Lookup failed</string>
+    <string name="search_find_failed_tip">Not found on page</string>
+    <string name="search_reading">Reading</string>
+    <string name="search_browsing">Browsing the web</string>
+    <string name="search_view_all">View all</string>
+    <string name="search_results">Search results</string>
+    <string name="search_panel_empty">No sources to show for this turn</string>
+
+    <!-- Thinking header (official wording) -->
+    <string name="thinking_running">Thinking</string>
+    <string name="thinking_done">Finished thinking</string>
+    <string name="thinking_done_seconds">Thought for %1$d sec</string>
+    <string name="thinking_stopped">Stopped</string>
+
+    <!-- Safety refusal -->
+
+    <!-- Time/location reminder -->
+    <string name="prompt_language_name">English</string>
+
+    <!-- Settings: protocol channel / search / region -->
+    <string name="settings_api_style">Protocol channel</string>
+    <string name="api_style_auto">Auto (decide by endpoint)</string>
+    <string name="api_style_openai">OpenAI compatible</string>
+    <string name="api_style_anthropic">Anthropic compatible (extended)</string>
+    <string name="settings_web_search">Smart search</string>
+    <string name="settings_web_search_hint">Let the model search the web when needed. Only available on the extended channel.</string>
+    <string name="settings_location">Region</string>
+    <string name="settings_location_hint_short">Used for the time reminder</string>
+    <string name="settings_location_placeholder">City or country, e.g. “Hangzhou”</string>
+
+    <!-- ── Voice input (system recognizer) ──────────────── -->
+    <string name="voice_input">Voice input</string>
+    <string name="voice_stop">Stop recording</string>
+    <string name="voice_unavailable">No speech recognition service is available on this device</string>
+    <string name="voice_empty">Didn\'t catch that, please try again</string>
+    <string name="voice_error_audio">Recording failed, please retry</string>
+    <string name="voice_error_permission">Microphone permission is required for voice input</string>
+    <string name="voice_error_network">Speech recognition needs a network connection</string>
+    <string name="voice_error_busy">The recognition service is busy, try again shortly</string>
+    <string name="voice_error_server">The recognition service failed, try again shortly</string>
+    <string name="voice_permission_denied">Microphone permission denied, voice input unavailable</string>
+    <string name="voice_listening">Listening… release to finish</string>
+    <string name="input_hint_hold_to_talk">Tap to type, or hold to speak</string>
+
+    <!-- ── Read aloud (system TTS) ──────────────────────── -->
+    <string name="tts_speak">Read aloud</string>
+    <string name="tts_stop">Stop reading</string>
+    <string name="tts_failed">Could not read this aloud, please retry</string>
+    <string name="tts_empty">This reply has no text to read</string>
+    <string name="tts_unavailable">No text-to-speech engine is available. Install one in system settings</string>
+    <!-- Read-aloud voice (Settings) -->
+    <string name="tts_voice">Reading voice</string>
+    <string name="tts_voice_default">System default</string>
+    <string name="tts_voice_online">online</string>
+    <string name="tts_voice_loading">Reading the voices installed on this device…</string>
+    <string name="tts_voice_empty">No text-to-speech engine is available on this device. Install one (for example Google Speech Services) and come back.</string>
+    <string name="tts_voice_hint">Voices come from the system text-to-speech engine. Voices marked online may stay silent when offline.</string>
+    <string name="tts_voice_preview">Preview</string>
+    <string name="tts_voice_preview_running">Previewing… tap again to stop</string>
+    <string name="tts_voice_preview_text">Hello, this is a short preview so you can pick a reading voice.</string>
+    <!-- DeepSeek official TTS (/v1/tools/tts, voices stella / tide) -->
+    <string name="tts_voice_stella">Stella (female · DeepSeek official)</string>
+    <string name="tts_voice_tide">Tide (male · DeepSeek official)</string>
+    <string name="tts_voice_official_section">DeepSeek official voices</string>
+    <string name="tts_voice_official_hint">Official voices need the DeepSeek provider selected, a Base URL pointing at api.deepseek.com, and an API key. With other providers, use the system voices above.</string>
+    <string name="tts_official_unavailable">This provider does not support DeepSeek official read-aloud. Pick a system voice in settings.</string>
+    <string name="tts_official_failed">Official read-aloud failed: %1$s</string>
+    <string name="tts_official_empty">Nothing to read aloud here (code blocks and tables are skipped)</string>
+
+    <!-- ── Mermaid diagrams ─────────────────────────────── -->
+    <string name="mermaid_label">Diagram</string>
+    <string name="mermaid_show_code">Code</string>
+    <string name="mermaid_show_diagram">Diagram</string>
+    <string name="mermaid_render_failed">Could not render the diagram. Raw code below.</string>
+    <string name="mermaid_loading">Rendering diagram…</string>
+    <string name="settings_export_archive">Export all chats (ZIP archive)</string>
+    <string name="settings_export_archive_summary">A complete backup of every chat and attachment, plus a Markdown document per chat. Can be imported back directly.</string>
+    <string name="import_fail_space">Not enough storage. Free space and retry incremental import.</string>
+    <string name="import_fail_memory">Not enough available memory. Close other apps and retry.</string>
+    <string name="import_report_not_saved">The detailed import report could not be saved. Check available storage; the counts above are still valid.</string>
+    <string name="images_never_remind">Don’t remind again</string>
+    <string name="settings_image_skip_notice">Skipped image notices</string>
+    <string name="search_role_user">User message</string>
+    <string name="search_role_assistant">AI reply</string>
+    <string name="search_title_match">Title match</string>
+    <string name="search_load_more">Load more results</string>
+</resources>
+
+

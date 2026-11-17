@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+
+    <!--
+        「后台继续生成」：生成期间用一个 dataSync 型前台服务把进程提权。
+
+        没有它的话，退到后台的普通进程随时会被系统回收 —— 表现是长回复写到一半
+        突然停住（见 `service/GenerationService`）。`WAKE_LOCK` 只在生成期间持有
+        PARTIAL 锁（保 CPU，不点屏），生成结束立刻释放。
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.WAKE_LOCK" />
+
+    <!--
+        语音输入（录音 → 系统识别）**仍然下线**，所以这里不声明 `RECORD_AUDIO`，
+        也不声明识别服务的 `<queries>` —— 否则装完之后系统设置里会挂着一个
+        用不上的"麦克风"权限。
+
+        朗读（TTS）已开启：Android 11+ 的包可见性要求显式声明 TTS 服务的 intent，
+        否则 `TextToSpeech` 可能找不到引擎、读不出音色列表（见 `FeatureFlags`）。
+        重新开启语音输入时，把下面这两行也加回来：
+        ```xml
+        <uses-permission android:name="android.permission.RECORD_AUDIO" />
+        <intent><action android:name="android.speech.RecognitionService" /></intent>
+        ```
+    -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
+
+    <application
+        android:name=".App"
+        android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
+        android:label="@string/app_name"
+        android:roundIcon="@mipmap/ic_launcher_round"
+        android:supportsRtl="true"
+        android:theme="@style/Theme.SimpleChat">
+
+        <activity
+            android:name=".MainActivity"
+            android:exported="true"
+            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode|density|fontScale"
+            android:windowSoftInputMode="adjustResize"
+            android:theme="@style/Theme.SimpleChat">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+
+        <!--
+            「拍照」要一个可写的位置给相机 App，并把 URI 授权给它。
+
+            FileProvider 是**唯一**能给出去临时写权限的做法 —— 直接传
+            `file://` 从 Android 7 起会抛 FileUriExposedException。
+            用自己包名下的 `cacheDir/captures`，图片导入后立刻删掉：
+            它只是中转，base64 已经进库了。
+        -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
+
+        <!--
+            「后台继续生成」的前台服务。`dataSync` 是 Android 14+ 强制要求声明的那一类：
+            它描述的是"正在把数据同步到远端/本地"，与本场景（持续接收流式回复）最贴切。
+            `exported=false`：只有自己能起。
+        -->
+        <service
+            android:name=".service.GenerationService"
+            android:exported="false"
+            android:foregroundServiceType="dataSync" />
+    </application>
+
+</manifest>
