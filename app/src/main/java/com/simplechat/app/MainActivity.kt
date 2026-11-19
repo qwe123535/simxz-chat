@@ -20,6 +20,7 @@ import com.simplechat.app.ui.RootScreen
 import com.simplechat.app.ui.theme.AccentColor
 import com.simplechat.app.ui.theme.ApplySystemBarAppearance
 import com.simplechat.app.ui.theme.CustomColors
+import com.simplechat.app.ui.theme.UiStyle
 import com.simplechat.app.ui.theme.SimpleChatTheme
 import com.simplechat.app.ui.theme.ThemeMode
 
@@ -109,6 +110,9 @@ class MainActivity : ComponentActivity() {
                 custom = custom,
                 lineHeightScale = current?.lineHeightScale ?: 1f,
                 bodyMonospace = current?.bodyMonospace ?: false,
+                uiStyle = UiStyle.fromId(current?.uiStyleId),
+                // 原版永远显示全部；DeepSeek 皮肤按开关决定
+                showExtras = current?.showExtrasInDeepSeek ?: false,
             ) {
                 ApplySystemBarAppearance()
                 // 禁止截屏：系统级开关，改完立刻生效，不用重建 Activity
