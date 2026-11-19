@@ -516,6 +516,17 @@
 <!-- ── Message list / message actions ─────────────────────── -->
     <string name="msg_regenerate">Regenerate</string>
     <string name="reply_waiting">Loading</string>
+    <string-array name="reply_waiting_phrases" translatable="false">
+        <item>Thinking</item>
+        <item>Composing</item>
+        <item>On it</item>
+        <item>One moment</item>
+        <item>Working on it</item>
+        <item>Almost there</item>
+        <item>Pondering</item>
+        <item>Brewing a reply</item>
+    </string-array>
+
     <string name="msg_continue">Continue generating</string>
     <string name="msg_fork_from_here">Start a new chat from here</string>
     <string name="msg_expand_all">Expand all</string>
@@ -792,6 +803,17 @@
     <string name="favorites_empty">Nothing saved yet. Long-press a message, or a chat in the drawer.</string>
 
     <!-- Slash commands -->
+    <string name="settings_loading_words">Waiting text</string>
+    <string name="settings_loading_words_summary">Before first token</string>
+    <string name="loading_words_empty">No custom text yet — the built-in set is in use.</string>
+    <string name="loading_words_hint">One of these is picked at random before the first token arrives. The ellipsis is added by the animation.</string>
+    <string name="loading_words_add">Add one</string>
+    <string name="loading_words_edit">Edit text</string>
+    <string name="loading_words_placeholder">e.g. Thinking</string>
+    <string name="loading_words_delete_title">Delete this text?</string>
+    <string name="loading_words_delete_body">\'%1$s\' will be removed from the waiting text.</string>
+    <string name="loading_words_use_theme_color">Use accent color</string>
+    <string name="loading_words_use_theme_color_hint">Off keeps it as quiet as the thinking row</string>
     <string name="settings_slash_commands">Shortcuts</string>
     <string name="settings_slash_commands_summary">Type / to use</string>
     <string name="slash_group">Commands</string>
