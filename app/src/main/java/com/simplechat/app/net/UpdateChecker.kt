@@ -25,9 +25,15 @@ import okhttp3.Request
  */
 object UpdateChecker {
 
-    /** 仓库地址：与「关于」页里的项目链接同一处。 */
+    /**
+     * 仓库地址：与「关于」页里的项目链接同一处。
+     *
+     * 指向**本分支仓库**（simxz-chat），不是上游 —— 检查更新要查的是
+     * 用户手上这个包会从哪儿更新，查上游只会告诉他"有 1.2.2 可升"，
+     * 装上去却是另一个 App。
+     */
     private const val LATEST_RELEASE_URL =
-        "https://api.github.com/repos/Pokanshuu/Simple-Chat/releases/latest"
+        "https://api.github.com/repos/qwe123535/simxz-chat/releases/latest"
 
     /**
      * 独立的客户端：只用于版本查询。
