@@ -1,200 +1,110 @@
 # simxz-chat
 
-> **Unofficial fork.**
-> This project is a modified fork of the official
-> [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat), renamed **simxz-chat**
-> with application ID `com.simxz.chat` (it can be installed alongside the official app).
-> It is not affiliated with the upstream project; report issues here, and treat the
-> upstream repository as the source of truth for features and documentation.
-
-
-> A lightweight, natively fast AI chat client for Android. Built with Jetpack Compose; the R8-minified release APK is about 3.8 MB.
+[![Version](https://img.shields.io/badge/version-0.7-blue)](https://github.com/qwe123535/simxz-chat/releases)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Status](https://img.shields.io/badge/status-not_long_term_maintained-orange)](#maintenance-status)
 
 **[中文](README.md) | English**
 
-[![Version](https://img.shields.io/badge/version-0.7-blue)](https://github.com/qwe123535/simxz-chat/releases)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+An Android chat client for OpenAI-compatible endpoints, written in Jetpack Compose. Conversations stay on the phone.
 
-## Introduction
+This is an **unofficial fork** of [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat). The package name is `com.simxz.chat`, so it installs alongside the original. There is no affiliation between the two; this repository is the source of truth for its own features and bugs.
 
-An Android AI chat client aimed at long-form, continuous creative writing. It talks to any OpenAI-compatible endpoint, stores everything locally, and has no accounts and no cloud sync.
+> **Maintenance status: not long-term maintained.**
+> This is a personal build tuned to how I use it. It is not a product and has no release schedule.
+> Updates are occasional. Issues and PRs are not guaranteed a reply, and nothing promises compatibility with older databases or settings.
+> For long-term use or further development, start from the upstream project instead.
 
-Good for:
+---
 
-- long-form writing, world building, role-play
-- long multi-turn conversations that need context usage tracking and compaction
-- self-hosted or local OpenAI-compatible services
+## What this fork changes
 
-## Contents
+On top of upstream:
 
-- [Introduction](#introduction)
-- [Features](#features)
-- [Not included](#not-included)
-- [Getting started](#getting-started)
-- [Usage](#usage)
-- [Configuration](#configuration)
-- [Development](#development)
-- [Tech stack](#tech-stack)
-- [Project layout](#project-layout)
-- [Privacy & security](#privacy--security)
-- [Documentation](#documentation)
-- [Contributing](#contributing)
-- [License](#license)
+**Interface**
+- Bottom tab bar: Chat / Settings as peers, cross-faded
+- Settings root is a two-column tile grid showing the current value on each tile
+- **DeepSeek style**: a switch in settings toggles "Original / DeepSeek". The latter redraws the chat screen after DeepSeek's official app — centered title, a filled input field instead of a white card, 22dp user bubbles with a tightened bottom-right corner, looser message spacing, no assistant bubble
+- Custom colors: accent, own bubble, page, card and body text, each editable with an HSV picker
+- Reading options: body line height 0.9×–1.6×, optional monospace body, code-block wrapping
+- Minimal mode and custom waiting phrases
 
-## Features
+**Input**
+- Long-press the empty input to open the conversation panel (replaces the old gear button)
+- Send-on-Enter switch (off by default — on phones Enter usually means newline)
+- `/` shortcuts: keep your own list, typing `/` pops it up
+- Multi-select attachments (up to 20), with size labels, reordering and a full-screen viewer
+- Quote reply: long-press a message → quote; the quote shows above the input
 
-- Multiple providers: any OpenAI-compatible endpoint, with built-in presets for DeepSeek and OpenCode Go.
-- **Two protocol channels**: the official DeepSeek endpoint can use the **Anthropic-compatible** extended channel (web search / link reading / citations / server-side titles / time-and-place reminder), while every other endpoint stays on OpenAI-compatible. Both coexist and can be pinned manually.
-- **Smart search**: `deepseek_web_search`. The process renders as a timeline (search / browse pages / find in page / read links), the answer carries `[ⁿ]` citation marks, and the source strip and source sheet share one numbering.
-- Streaming output: SSE token by token, live Markdown rendering, pixel-identical before and after finalisation.
-- Thinking panel: `reasoning_content` shown collapsed, timing counts real thinking time only, folds as soon as the answer starts (can be turned off).
-- **Continue generating**: a reply you stopped, or one cut off by the output limit, can be continued in place (trailing-assistant prefix).
-- **Math**: `$…$` / `$$…$$` / `\[…\]` rendered natively by Compose (no WebView + KaTeX).
-- **Mermaid diagrams**: ```mermaid fences render as diagrams with a switch back to source; the script ships in the APK, so it works offline.
-- **Read aloud**: replies are spoken by the system TTS engine — no backend, no permission. Pick a voice (with preview) in Settings; code blocks and tables are stripped before reading.
-- **Automatic reading**: the speaker switch next to New chat reads newly completed replies using the selected voice. Turning it off stops playback immediately.
-- **API profiles**: save independent URLs, models, protocols and encrypted keys; create, copy, rename, delete or switch profiles. Changes save automatically and existing settings are preserved.
-- Message tree organised by `parentId`. Regenerating creates an in-conversation branch; switching versions carries the downstream along instead of deleting history; long-press forks into a new conversation.
-- Context management: CJK-weighted token estimate, usage ring on the input bar, incremental compaction (keeps the last 6 messages in full).
-- Attachments: camera / gallery / files, none of which need runtime permission; images, plain text, docx and PDF. Imported images are stored as files in app-private storage, with only the file name kept in the database. Oversized messages use chunked reads; capacity depends on available device storage and memory. Tapping an image opens a full-screen viewer with swipe between images.
-- **Images are validated before sending**: the real format is detected from the file header, formats the server does not accept are transcoded to JPEG locally, and unreadable images are skipped with a notice instead of breaking the conversation forever.
-- Model capability aware: when the selected model does not accept images, they are skipped with a notice instead of being rejected by the server.
-- Data out: JSON backup, **ZIP archive** (backup plus a Markdown document per conversation) and Markdown export; imports this app's backups, ZIP archives, Chatbox backups and DeepSeek official exports (deepseek_data-*.zip), with three import modes: add new only, overwrite same name, or keep both. Import results are reconciled item by item (how many in the archive, how many imported, which ones failed and why), so nothing disappears silently.
-- Search: full-text over titles and bodies, with hit snippets in the results.
-- Long messages: collapsed past 10 lines, whole message stays tappable once expanded.
-- Appearance: dark mode, accent colours, font scale, follow the system.
-- Languages: interface, prompts and export templates in Chinese and English, switchable in settings (follow system / Simplified Chinese / English); typography is tiered per language (justified for Chinese, left-aligned for Western text).
+**Conversation**
+- Switching conversations no longer cancels generation; it continues in the background and posts a notification when done
+- Reply, continue and stop straight from the notification
+- Per-conversation status dots: spinner = generating, green = finished unseen, amber = failed
+- Collapsible per-message token usage (input / output)
+- Edit history: previous versions are kept (up to 20) and can be expanded
+- Context budget bar above the input; turns amber past 85%
+- Manual context window (auto / 32K / 64K / 128K / 256K / 512K / 1M) — custom and local models no longer default to 128K
+- Automatic context compaction at 85% of the window, and again if the server rejects the request as too long
+- "Branch 2/3" in the top bar
+- Reasoning always visible — no longer hidden behind a settings switch
+- Favorites for both messages and conversations
+- Long-image sharing: render a conversation to PNG
+- Tool calling: two fully local tools (`get_current_time`, `calculator`) over standard function calling
 
-## Not included
+**Settings**
+- Haptics with separate switches for send, long-press and delete
+- Storage & cache breakdown (database, attachments, orphans, cache) with one-tap cleanup
+- App lock (system credential prompt) and screenshot blocking
+- Background keep-alive: foreground service, wake lock, battery-optimization exemption, silent audio
+- Memories, error log, usage stats per model
+- First-run onboarding: key → model → done, skippable at every step
 
-- Client-side rewriting of content. Requests go to your configured endpoint as-is.
-- Client-side tool calls (server search tools are supported; local functions are not), voice cloning.
-- Automatic backup, cloud sync, accounts.
-- Navigation, Hilt, Koin, Retrofit, Markwon, material-icons-extended.
+**Other**
+- A "Local" provider preset defaulting to `http://127.0.0.1:11434/v1`, usable without an API key (cleartext HTTP allowed)
+- Recent searches, plain-text (.txt) export
+- Storage cleanup only removes unreferenced attachments and cache — never the database
 
-## Getting started
+## Download
 
-### Requirements
+Grab the APK from [Releases](https://github.com/qwe123535/simxz-chat/releases). Current version: **0.7**.
 
-- JDK 17 (Android Studio's bundled JBR 21 works)
-- Android SDK platform 37, build-tools 37.0.0
-- Gradle comes from the wrapper
+Package name `com.simxz.chat`; it coexists with the original. The APK is debug-signed (no release keystore is configured), so **uninstall any older build with the same package name first**.
 
-### Build
+## Building
+
+You need JDK 17+ and Android SDK (platform 37, build-tools 37.0.0):
 
 ```bash
-git clone https://github.com/Pokanshuu/Simple-Chat.git
-cd Simple-Chat
 ./gradlew assembleDebug
 ```
 
-The APK lands in `app/build/outputs/apk/debug/`.
+Output lands in `app/build/outputs/apk/debug/`.
 
-On Windows, point at a JDK explicitly:
+The repo also ships a GitHub Actions workflow (`.github/workflows/build.yml`): pushing to `main` or triggering `workflow_dispatch` runs `assembleRelease` + `assembleDebug` on a runner and uploads the APKs as artifacts. I don't run full release builds on low-memory hardware — CI is the main way this gets built.
 
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
-.\gradlew.bat assembleDebug
-```
+## Known limits
 
-## Usage
+- No built-in browser; links go to the system
+- No accounts, cloud sync or automatic backups
+- The database is not encrypted (conversations are plain files in app-private storage, protected by app lock and screenshot blocking)
+- Incognito mode, cross-conversation message search and batch message operations are not implemented
+- A few settings currently store a value without affecting behaviour (auto-expanded process blocks, preserved reasoning, some keep-alive options); these will either be wired up or removed from the UI
 
-1. Install and launch.
-2. Open Settings → API, pick a provider, fill in the API key, tap Test connection.
-3. Go back to a chat and send a message.
+## Development & credits
 
-## Configuration
+This fork:
 
-### API
+- **qwe123535** — maintenance, UI and feature work
 
-| Item | Description | Default | Required |
-|---|---|---|---|
-| Provider | DeepSeek / OpenCode Go / custom | DeepSeek | yes |
-| Base URL | OpenAI-compatible endpoint | per provider | yes |
-| Model | Chat model | `deepseek-flash` | yes |
-| API Key | Server-side key, stored encrypted locally | none | yes |
+Upstream and dependencies:
 
-### Building releases
+- **DeepSeek** — model capabilities and API (reasoning traces, context windows and function calling all come from it), and the design reference for the DeepSeek interface style
+- **[Simple-Chat](https://github.com/Pokanshuu/Simple-Chat)** by **Pokanshuu** — the foundation: most of the architecture, protocol layer, rendering and data layer come from upstream
 
-Release signing reads `keystore.properties` (never committed):
-
-```properties
-storeFile=keystore/xxx.jks
-storePassword=...
-keyAlias=...
-keyPassword=...
-```
-
-When the file is missing, `assembleRelease` falls back to the **debug signature** (not an unsigned APK) so that a fresh clone can still run the whole release flow.
-
-## Development
-
-```bash
-./gradlew testDebugUnitTest    # unit tests
-./gradlew assembleDebug        # debug build, package suffix .debug
-./gradlew assembleRelease      # release build, needs signing config
-```
-
-Unit tests cover the pure functions and the protocol layer; no emulator needed.
-
-## Tech stack
-
-| Item | Version |
-|---|---|
-| Gradle | 9.7.1 |
-| AGP | 9.4.1 (Kotlin built in) |
-| Kotlin | 2.4.10 |
-| KSP | 2.3.12 |
-| Compose BOM | 2026.09.00 |
-| compileSdk / targetSdk | 37 |
-| minSdk | 26 (Android 8.0) |
-| JVM | 17 |
-| Room | 2.8.5 |
-| OkHttp | 5.5.0 |
-| kotlinx.serialization | 1.11.0 |
-| DataStore | 1.2.1 |
-
-Full dependency list: [`gradle/libs.versions.toml`](gradle/libs.versions.toml).
-
-## Project layout
-
-```text
-app/src/main/java/com/simplechat/app/
-├─ data/          repository layer: conversations, backup import/export, attachments, Keystore crypto, token estimate
-│  └─ import/     Chatbox / DeepSeek backups, docx text extraction, image size
-├─ db/            Room: entities, DAOs, explicit migrations, message-tree pure functions
-├─ net/           DTOs, SSE client and line parser, providers and model capability table
-└─ ui/
-   ├─ chat/       chat page: message list, input bar, panels, edit dialog, plus pure functions (text chunks / request building / ordering)
-   ├─ history/    conversation drawer and full-text search
-   ├─ settings/   settings (API, data management, appearance, about)
-   ├─ markdown/   Markdown rendering and soft-break fixes
-   ├─ common/     the one and only widget/visual-token layer (buttons, menus, dialogs, icons, transitions)
-   └─ theme/      colours, type, shapes
-```
-
-## Privacy & security
-
-- The API key is stored as AES-256-GCM ciphertext under Android Keystore, with keys isolated per UID. The repository contains no keys.
-- Requests go straight from the device to your endpoint; no third party in between.
-- Database migrations are explicit; `fallbackToDestructiveMigration` is not used.
-
-## Documentation
-
-Design documents, implementation records and the changelog are indexed in [`docs/README.md`](docs/README.md). The `§` references in code comments point to these documents. Historical records describe the version and verification scope at the time; current release notes are in [`RELEASE_NOTES_v1.1.5.md`](RELEASE_NOTES_v1.1.5.md).
-
-- [`TODO.md`](TODO.md): current status and to-dos.
-
-## Contributing
-
-Issues and pull requests are welcome. Please keep the change focused and run `./gradlew testDebugUnitTest` before sending.
+The DeepSeek interface style follows the visual spec of [deepseek-app-replica](https://github.com/LiJiaHua1024/deepseek-app-replica) (visual parameters only; none of its code was copied).
 
 ## License
 
-Released under the [MIT](LICENSE) license.
+[MIT](LICENSE).
 
-This project is a modified fork of the official [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat) and is distributed under the same MIT license; copyright of the original work belongs to its authors.
-
-
-
-
+Modified from the upstream Simple-Chat under the same MIT license; copyright of the original work belongs to its author.

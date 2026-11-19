@@ -1,206 +1,110 @@
 # simxz-chat
 
-> **这是非官方分支。**
-> 本项目基于官方 [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat) 二次修改，
-> 改名为 **simxz-chat**，包名 `com.simxz.chat`（可与官方版同时安装）。
-> 官方项目与本分支没有隶属关系，问题请提到本仓库；上游的功能与文档以官方仓库为准。
-
-
-> 轻量、原生性能的 Android AI 对话客户端。Jetpack Compose 实现，release 经 R8 压缩后约 3.8 MB。
+[![Version](https://img.shields.io/badge/version-0.7-blue)](https://github.com/qwe123535/simxz-chat/releases)
+[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![Status](https://img.shields.io/badge/status-非长期维护-orange)](#维护状态)
 
 **中文 | [English](README.en.md)**
 
-[![Version](https://img.shields.io/badge/version-0.7-blue)](https://github.com/qwe123535/simxz-chat/releases)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+一个 Android 端的 AI 对话客户端，Jetpack Compose 写的，接任意 OpenAI 兼容端点，聊天记录只存在手机上。
 
-## 简介
+这个仓库是 [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat) 的**非官方分支**，包名改成了 `com.simxz.chat`，可以和官方版同时装在手机上。两边没有隶属关系，功能与问题都以本仓库为准。
 
-面向长文本连续创作的 Android 端 AI 对话客户端。接入任意 OpenAI 兼容端点，数据完全本地存储，无账号体系与云同步。
+> **维护状态：非长期维护。**
+> 这是个人按自己使用习惯改出来的版本，不是产品，也没有发布计划。
+> 会随缘更新，Issue 和 PR 不保证及时回复，也不保证兼容旧版本的数据库或配置。
+> 如果你要长期使用或二次开发，建议以官方项目为基础。
 
-适用场景：
+---
 
-- 长文本续写、设定推演、角色扮演
-- 多轮长会话，需要上下文占用管理与压缩
-- 自建或本地 OpenAI 兼容服务
+## 这个分支改了什么
 
-## 目录
+在官方版本之上，主要做了这些事（按用户能感知的顺序）：
 
-- [简介](#简介)
-- [特性](#特性)
-- [不包含](#不包含)
-- [快速开始](#快速开始)
-- [使用示例](#使用示例)
-- [配置](#配置)
-- [开发](#开发)
-- [技术选型](#技术选型)
-- [项目结构](#项目结构)
-- [隐私与安全](#隐私与安全)
-- [文档](#文档)
-- [贡献](#贡献)
-- [许可证](#许可证)
+**界面**
+- 底部标签栏：对话 / 设置两个平级标签，切换淡入淡出
+- 设置一级页改成两列小方格，右侧值直接显示当前状态
+- **DeepSeek 界面风格**：设置里可切换「原版 / DeepSeek 风格」。后者按 DeepSeek 官方手机端的视觉重画——标题居中、输入框是填充色块而不是白卡片、用户气泡 22dp 圆角且右下角收紧、消息间距更松、没有助手气泡
+- 自定义配色：主色、我的气泡、页面底色、卡片底色、正文颜色五项可单独调，带 HSV 取色器
+- 阅读排版：正文行高 0.9×–1.6×、正文可切等宽字体、代码块自动换行
+- 极简模式、等待文案自定义（可以自己写「思考中」显示哪几句话）
 
-## 特性
+**输入**
+- 长按空输入框打开对话设置面板（原来靠输入栏右侧的齿轮）
+- 回车发送开关（默认关：手机输入法回车常用来换行）
+- `/` 快捷指令：自己维护一份指令列表，输入 `/` 就弹出来
+- 附件多选，最多 20 张；显示大小、可以左右调顺序、点开看大图
+- 引用回复：长按消息 → 引用，输入栏上方出现引用条
 
-- 多服务端：任意 OpenAI 兼容端点，内置 DeepSeek 与 OpenCode Go 配置。
-- **双协议通道**：DeepSeek 官方端点可走 **Anthropic 兼容**扩展通道（联网搜索 / 链接阅读 /
-  正文引用 / 服务端标题 / 时间地点提醒），其余端点走 OpenAI 兼容。两条并存，可手动锁定。
-- **智能搜索**：`deepseek_web_search`。过程以时间线呈现（搜索 / 浏览网页 / 页内查找 /
-  阅读链接），正文带 `[ⁿ]` 引用角标，下方来源条与来源弹窗用同一套编号。
-- 流式输出：SSE 逐字渲染，Markdown 实时渲染，定稿前后像素级一致。
-- 思考区：`reasoning_content` 折叠展示，仅计真实思考时长，正文出现即收起（可关闭）。
-- **继续生成**：被用户停止、或被输出上限截断的回复可以接着写（末尾 assistant 前缀续写）。
-- **数学公式**：`$…$` / `$$…$$` / `\[…\]` 由 Compose 原生渲染（不引 WebView + KaTeX）。
-- **Mermaid 图表**：` ```mermaid ` 渲染成图，可切回源码；脚本随包发布，离线可用。
-- **朗读**：系统 TTS 逐条朗读回复，无需服务端与权限；设置里可切换音色（含试听），朗读前会剥掉代码块与表格。
-- **自动朗读**：顶栏新建对话左侧的喇叭开关，开启后朗读新完成的回复，关闭即停止；使用已选朗读音色。
-- **API 配置管理**：独立保存多组地址、模型、协议与加密 Key，支持新建、复制、重命名、删除和一键切换；修改自动保存，现有配置自动保留。
-- 消息树：以 `parentId` 组织。重新生成为会话内分支，切换版本时下游整段跟随，不删除历史；长按支持会话间分叉。
-- 上下文管理：CJK 加权 token 估算、输入栏占用圆环、增量滚动压缩（保留最近 6 条完整消息）。
-- 附件：拍照 / 相册 / 文件三个入口，均无需申请权限；支持图片、纯文本、docx、PDF。
-  导入的图片字节落在应用私有目录，数据库只存文件名，超大消息采用分块读取；
-  实际容量受设备可用存储与内存影响。点图进入整屏查看，多图左右翻。
-- **图片发送前校验**：按文件头判断真实格式，服务端不认的格式本地转码为 JPEG；坏图跳过并提示，不会让整个会话永远发不出去。
-- 模型能力适配：所选模型不支持图片时，发请求会跳过图片并提示，而不是被服务端拒绝。
-- 数据出口：JSON 备份、**ZIP 归档**（备份 + 每个会话的 Markdown 文稿）与 Markdown 文稿导出；
-  支持导入本应用备份、ZIP 归档、Chatbox 备份与 DeepSeek 官方导出
-（`deepseek_data-*.zip`）；导入方式可选增量 / 覆盖同名 / 同名新命名。导入结果**逐项对账**（归档几条 / 进来几条 / 哪条因为什么没进来），失败条目不会静默消失。
-- 搜索：标题与正文全文搜索，结果行显示命中片段。
-- 长消息：超 10 行自动收起，展开后整条可点。
-- 外观：深色模式、主题色、字号倍率、跟随系统。
-- 多语言：界面、提示词与导出模板中英双语，设置内切换（跟随系统 / 简体中文 / English）；排版按语种分档（中文两端对齐，西文左对齐）。
+**对话**
+- 切走会话不再中断生成，后台继续写，完成后发通知
+- 通知栏可以直接回复、继续生成、停止
+- 会话列表有状态点：转圈 = 正在生成，绿点 = 后台写完了没看，黄点 = 这条出错
+- 每句回复下方可折叠的 token 用量（输入 / 输出）
+- 消息编辑历史：改过的消息保留旧版本（最多 20 版），可以展开看
+- 上下文预算条：输入框上方显示「已用 / 窗口」，超 85% 变黄
+- 上下文窗口可以手动指定（自动 / 32K / 64K / 128K / 256K / 512K / 1M）——自定义和本地模型不再一律按 128K 算
+- 自动上下文压缩：到窗口 85% 自动压一次；被服务端拒绝「超长」时也会自动压
+- 顶栏显示「分支 2/3」
+- 深度思考过程常显，不藏在设置里
+- 收藏：消息和会话都能收藏
+- 长图分享：把一段对话画成 PNG
+- 工具调用：内置「当前时间」和「计算器」两个纯本地工具，走标准 function calling
 
-## 不包含
+**设置**
+- 触感反馈（发送 / 长按 / 删除分别可关）
+- 存储与缓存：分项统计数据库、附件、残留文件、缓存，可一键清理
+- 应用锁（调用系统锁屏验证）、禁止截屏
+- 后台保活：前台服务、WakeLock、忽略电池优化、静音音频
+- 记忆、错误日志、用量统计（按模型汇总）
+- 首次启动引导：填 Key → 选模型 → 完成，每屏可跳过
 
-- 客户端内容改写。请求原样送达所配置的服务端。
-- 客户端工具调用（服务端搜索工具已支持，但不执行本地函数）、TTS 语音克隆。
-- 自动备份、云同步、账号体系。
-- 依赖 Navigation、Hilt、Koin、Retrofit、Markwon、material-icons-extended。
+**其它**
+- 「本地」服务商预设，默认 `http://127.0.0.1:11434/v1`，不填 Key 也能发消息（已放开明文 HTTP 限制）
+- 搜索最近记录、导出纯文本（.txt）
+- 数据目录清理只动没被引用的附件和缓存，不碰数据库
 
-## 快速开始
+## 下载
 
-### 环境要求
+从 [Releases](https://github.com/qwe123535/simxz-chat/releases) 下载 APK。当前版本 **0.7**。
 
-- JDK 17（Android Studio 自带 JBR 21 可用）
-- Android SDK platform 37、build-tools 37.0.0
-- Gradle 由 wrapper 自动下载
+包名 `com.simxz.chat`，可以和官方版共存。APK 用 debug 签名（没有配置发布证书），**装之前如果装过同包名的旧版本，要先卸载**。
 
-### 构建
+## 构建
+
+本地构建需要 JDK 17+ 和 Android SDK（platform 37、build-tools 37.0.0）：
 
 ```bash
-git clone https://github.com/Pokanshuu/Simple-Chat.git
-cd Simple-Chat
 ./gradlew assembleDebug
 ```
 
-产物位于 `app/build/outputs/apk/debug/`。
+产物在 `app/build/outputs/apk/debug/`。
 
-Windows 下需显式指定 JDK：
+这个仓库同时配了 GitHub Actions（`.github/workflows/build.yml`）：推送到 `main` 或手动触发 `workflow_dispatch`，会在云端跑 `assembleRelease` + `assembleDebug` 并把 APK 作为 artifact 上传。我没有在低配机器上跑完整 release 构建，云端这条路是主要的出包方式。
 
-```powershell
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
-.\gradlew.bat assembleDebug
-```
+## 已知边界
 
-## 使用示例
+- 不内置浏览器，链接一律交给系统
+- 没有账号、云同步、自动备份
+- 数据库未加密（聊天记录明文存在应用私有目录，靠应用锁和禁止截屏保护）
+- 无痕模式、跨会话消息搜索、批量消息操作还没做
+- 少数设置项目前只有开关没有实际行为（过程块默认展开、保留思考内容、部分保活选项），后续要么补上要么从界面撤掉
 
-1. 安装并启动。
-2. 进入「设置 → API 配置」，选择服务商、填入 API Key，点击「测试连接」。
-3. 返回对话页，输入消息发送。
+## 开发与致谢
 
-## 配置
+本分支：
 
-### API
+- **qwe123535** —— 维护、界面与功能改造
 
-| 项 | 说明 | 默认值 | 必填 |
-|---|---|---|---|
-| 服务商 | DeepSeek / OpenCode Go / 自定义 | DeepSeek | 是 |
-| Base URL | OpenAI 兼容端点地址 | 随服务商 | 是 |
-| 模型 | 对话模型 | `deepseek-flash` | 是 |
-| API Key | 服务端密钥，本地加密保存 | 无 | 是 |
+上游与依赖：
 
-### 构建
+- **DeepSeek** —— 模型能力与 API（推理模型的思考过程展示、上下文窗口、function calling 都基于它的接口），以及界面设计的参考对象
+- **[Simple-Chat](https://github.com/Pokanshuu/Simple-Chat)** 原作者 **Pokanshuu** —— 本项目的基础，绝大部分架构、协议层、渲染与数据层来自上游
 
-发布签名读取 `keystore.properties`（不入库）：
-
-```properties
-storeFile=keystore/xxx.jks
-storePassword=...
-keyAlias=...
-keyPassword=...
-```
-
-文件缺失时 `assembleRelease` **回退 debug 签名**（不是未签名包）—— 保证 clone 下来的人也能把发版流程跑通。
-
-## 开发
-
-```bash
-./gradlew testDebugUnitTest    # 单元测试
-./gradlew assembleDebug        # debug 包，包名后缀 .debug
-./gradlew assembleRelease      # release 包，需签名配置
-```
-
-单元测试覆盖纯函数与协议层，无需模拟器。
-
-## 技术选型
-
-| 项 | 版本 |
-|---|---|
-| Gradle | 9.7.1 |
-| AGP | 9.4.1（内置 Kotlin） |
-| Kotlin | 2.4.10 |
-| KSP | 2.3.12 |
-| Compose BOM | 2026.09.00 |
-| compileSdk / targetSdk | 37 |
-| minSdk | 26（Android 8.0） |
-| JVM | 17 |
-| Room | 2.8.5 |
-| OkHttp | 5.5.0 |
-| kotlinx.serialization | 1.11.0 |
-| DataStore | 1.2.1 |
-
-完整依赖清单见 [`gradle/libs.versions.toml`](gradle/libs.versions.toml)。
-
-## 项目结构
-
-```text
-app/src/main/java/com/simplechat/app/
-├─ data/          仓库层：会话粘合、备份导入导出、附件处理、Keystore 加解密、token 估算
-│  └─ import/     Chatbox / DeepSeek 备份、docx 抽文本、图片尺寸
-├─ db/            Room：实体、DAO、显式迁移、消息树纯函数
-├─ net/           DTO、SSE 客户端与行解析、Provider 与模型能力表
-└─ ui/
-   ├─ chat/       对话页：消息列表、输入栏、各面板、编辑弹窗，以及纯函数（文本分块 / 请求组装 / 排序）
-   ├─ history/    会话抽屉与全文搜索
-   ├─ settings/   设置页（API 配置、数据管理、外观、关于）
-   ├─ markdown/   Markdown 渲染与软换行修复
-   ├─ common/     全应用唯一的控件与视觉 token（按钮、菜单、弹窗、图标、转场）
-   └─ theme/      颜色、字体、形状
-```
-
-## 隐私与安全
-
-- API Key 以 Android Keystore 的 AES-256-GCM 保存密文，密钥按 UID 隔离。仓库不含任何 Key。
-- 请求从设备直连所配置端点，无第三方中转。
-- 数据库迁移使用显式 Migration，不使用 `fallbackToDestructiveMigration`。
-
-## 文档
-
-设计文档、实现记录与变更记录见 [`docs/README.md`](docs/README.md)，代码注释中的 `§` 编号对应这些文档。历史记录保留当时的版本与验证边界；当前发布说明见 [`RELEASE_NOTES_v1.1.5.md`](RELEASE_NOTES_v1.1.5.md)。
-
-相关入口：
-
-- [`TODO.md`](TODO.md)：当前状态与待办。
-
-## 贡献
-
-欢迎提 Issue 与 PR。请保持改动聚焦，提交前跑一遍 `./gradlew testDebugUnitTest`。
+界面风格参考了 [deepseek-app-replica](https://github.com/LiJiaHua1024/deepseek-app-replica) 的视觉规范（只借鉴外观参数，未复制其代码）。
 
 ## 许可证
 
-基于 [MIT](LICENSE) 许可证开源。
+[MIT](LICENSE)。
 
-本项目基于官方 [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat) 二次修改，遵循同一份 MIT 许可证；原项目的版权归其作者所有。
-
-
-
-
+本项目基于官方 Simple-Chat 二次修改，遵循同一份 MIT 许可证；原项目版权归其作者所有。
