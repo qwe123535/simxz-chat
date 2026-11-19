@@ -1018,7 +1018,11 @@ fun AssistantBlock(
             Spacer(Modifier.size(messageGap()))
         }
 
-        if (timeline != null) {
+        /*
+         * 思考 / 时间线面板属于"高级功能"：DeepSeek 皮肤默认不显示。
+         * 这是**渲染层**的隐藏，不是不记录 —— 打开开关立刻回来。
+         */
+        if (LocalShowExtras.current && timeline != null) {
             if (timeline.hasSteps) {
                 TimelinePanel(
                     view = timeline,
@@ -1032,7 +1036,7 @@ fun AssistantBlock(
                 )
                 Spacer(Modifier.size(messageGap()))
             }
-        } else if (hasReasoning) {
+        } else if (LocalShowExtras.current && hasReasoning) {
             ProcessPanel(
                 reasoning = message.reasoning.orEmpty(),
                 /*
