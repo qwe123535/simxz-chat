@@ -100,6 +100,21 @@ data class StoredSettings(
 
     /** 等待文案是否改用强调色（默认跟思考栏同色，显得安静）。 */
     val loadingWordsUseThemeColor: Boolean = false,
+
+    /**
+     * 界面风格。见 `UiStyle`：`ORIGINAL` 原版，`DEEPSEEK` 是 DeepSeek 那套皮肤。
+     *
+     * 存字符串而不是枚举：DataStore 里存枚举要自定义 Serializer，而这里
+     * 唯一的消费者就是主题层，多一个转换层没有收益。
+     */
+    val uiStyleId: String = "ORIGINAL",
+
+    /**
+     * DeepSeek 皮肤下是否显示"高级功能"（思考块、每句用量、操作栏、`/` 指令）。
+     *
+     * 那套界面本来没有这些东西，默认藏起来；想留着用就在这里打开。
+     */
+    val showExtrasInDeepSeek: Boolean = false,
     /**
      * 回车直接发送。
      *
@@ -392,6 +407,9 @@ class SettingsStore(
             loadingWords = RecentSearches.decode(prefs[Keys.LOADING_WORDS]),
             loadingWordsUseThemeColor = prefs[Keys.LOADING_WORDS_THEME]
                 ?: StoredSettings().loadingWordsUseThemeColor,
+            uiStyleId = prefs[Keys.UI_STYLE] ?: StoredSettings().uiStyleId,
+            showExtrasInDeepSeek = prefs[Keys.DEEPSEEK_EXTRAS]
+                ?: StoredSettings().showExtrasInDeepSeek,
             hapticSend = prefs[Keys.HAPTIC_SEND] ?: StoredSettings().hapticSend,
             hapticLongPress = prefs[Keys.HAPTIC_LONG_PRESS] ?: StoredSettings().hapticLongPress,
             hapticSwipeDelete = prefs[Keys.HAPTIC_SWIPE_DELETE]
@@ -723,6 +741,14 @@ class SettingsStore(
             if (words.isEmpty()) prefs.remove(Keys.LOADING_WORDS)
             else prefs[Keys.LOADING_WORDS] = RecentSearches.encode(words)
         }
+    }
+
+    suspend fun setUiStyle(id: String) {
+        preferences.edit { it[Keys.UI_STYLE] = id }
+    }
+
+    suspend fun setShowExtrasInDeepSeek(enabled: Boolean) {
+        preferences.edit { it[Keys.DEEPSEEK_EXTRAS] = enabled }
     }
 
     suspend fun setLoadingWordsUseThemeColor(enabled: Boolean) {
@@ -1073,6 +1099,8 @@ class SettingsStore(
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
         val LOADING_WORDS = stringPreferencesKey("loading_words")
         val LOADING_WORDS_THEME = booleanPreferencesKey("loading_words_theme_color")
+        val UI_STYLE = stringPreferencesKey("ui_style")
+        val DEEPSEEK_EXTRAS = booleanPreferencesKey("deepseek_extras")
         val TONE = stringPreferencesKey("ai_tone")
         val THINKING_SCROLL = booleanPreferencesKey("thinking_scroll")
         val STEP_THINKING = booleanPreferencesKey("step_thinking")
