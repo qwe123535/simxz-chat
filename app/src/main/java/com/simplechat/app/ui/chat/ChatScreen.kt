@@ -101,6 +101,7 @@ import com.simplechat.app.ui.common.AppIcons
 import com.simplechat.app.ui.common.MenuShape
 import com.simplechat.app.ui.common.AppShadow
 import com.simplechat.app.ui.common.IconCircleButton
+import com.simplechat.app.ui.theme.LocalShowExtras
 import com.simplechat.app.ui.common.MotionEasing
 import com.simplechat.app.ui.common.dismissKeyboardOnTouch
 import com.simplechat.app.ui.markdown.LocalCodeWrap
@@ -1514,7 +1515,8 @@ fun ChatScreen(
                  * 否则它会一直挡在输入栏上面。
                  */
                 val slashQuery = input.trimStart()
-                if (slashQuery.startsWith("/") && !slashQuery.contains(' ')) {
+                // DeepSeek 皮肤默认不显示 `/` 指令面板 —— 那套界面里没有这个入口
+                if (LocalShowExtras.current && slashQuery.startsWith("/") && !slashQuery.contains(' ')) {
                     SlashCommandPanel(
                         commands = vm.slashCommands,
                         query = slashQuery.drop(1),
