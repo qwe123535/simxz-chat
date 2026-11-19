@@ -29,7 +29,7 @@
     <string name="api_profile_name_hint">For example: Everyday DeepSeek, Home server</string>
     <string name="api_profile_save_failed">The API key could not be saved securely. Your previous settings were kept. Try again.</string>
     <string name="reply_save_failed">The reply could not be saved. Copy its text and check available storage.</string>
-    <string name="app_name">Simple Chat</string>
+    <string name="app_name">simxz-chat</string>
 
     <!-- ── Actions ──────────────────────────────────────── -->
     <string name="action_cancel">Cancel</string>
@@ -192,7 +192,7 @@
     <string name="storage_clear_body">Deletes attachment files nobody references and the temp cache. Chats and images still in use are untouched.</string>
     <string name="storage_clear_confirm">Clean up</string>
     <string name="storage_clear_done">Freed %1$s</string>
-    <string name="settings_about_title">About SimpleChat</string>
+    <string name="settings_about_title">About simxz-chat</string>
     <string name="settings_export_all">Export all data</string>
     <string name="settings_export_all_summary">Exports conversations, messages and all versions</string>
     <string name="settings_import_all">Import all data</string>
