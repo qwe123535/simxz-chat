@@ -835,4 +835,8 @@
     <string name="action_share_image">Share as image</string>
     <string name="share_image_failed">Couldn\'t render the image</string>
     <string name="share_image_chooser">Share this conversation</string>
+    <string name="settings_ui_style">Interface style</string>
+    <string name="ui_style_original">Original</string>
+    <string name="ui_style_deepseek">DeepSeek style</string>
+    <string name="settings_show_extras">Show advanced features</string>
 </resources>
