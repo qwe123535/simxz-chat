@@ -3143,6 +3143,12 @@ private fun AboutPage(onOpenLicenses: () -> Unit) {
             value = ProjectUrl,
             url = ProjectUrl,
         )
+        RowDivider(inset = 16.dp)
+        LinkRow(
+            label = stringResource(R.string.about_original_project),
+            value = OriginalProjectUrl,
+            url = OriginalProjectUrl,
+        )
     }
 
     SettingsSectionLabel(stringResource(R.string.about_licenses))
@@ -3662,7 +3668,15 @@ private fun SettingsSwitchRow(
  * 仓库地址。写成常量而不是资源：它是**代码里的一个事实**，不随界面语言变，
  * 也不该被翻译（翻成别的语言反而点不开）。改仓库时只改这一处。
  */
-private const val ProjectUrl = "https://github.com/Pokanshuu/Simple-Chat"
+private const val ProjectUrl = "https://github.com/qwe123535/simxz-chat"
+
+/**
+ * 上游项目地址。
+ *
+ * 单独列一行而不是塞进说明文字：这是 MIT 的义务之一（保留原作者署名），
+ * 而且用户想对比、想提 issue 到上游时，地址要是可点的。
+ */
+private const val OriginalProjectUrl = "https://github.com/Pokanshuu/Simple-Chat"
 
 /**
  * 可点击的信息行 —— 样式与 [InfoRow] 一致，只是值用主色、整行可点。
