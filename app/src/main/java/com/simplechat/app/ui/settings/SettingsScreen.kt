@@ -4061,7 +4061,7 @@ private fun BehaviorPage(
             label = stringResource(R.string.behavior_context_window),
             value = contextWindowLabel(stored.contextWindowOverride),
             selectedId = stored.contextWindowOverride.toString(),
-            options = ContextWindowOptions.map { it.first.toString() to contextWindowLabel(it.first) },
+            options = ContextWindowOptions.map { value -> value.toString() to contextWindowLabel(value) },
             onSelect = { onContextWindow(it.toIntOrNull() ?: 0) },
         )
     }
