@@ -838,6 +838,7 @@ fun SettingsScreen(
                             onLearningMode = { scope.launch { store.setLearningMode(it) } },
                             onSoftCompaction = { scope.launch { store.setSoftCompaction(it) } },
                             onMinimalMode = { scope.launch { store.setMinimalMode(it) } },
+                            onContextWindow = { scope.launch { store.setContextWindowOverride(it) } },
                         )
 
                         SettingsPage.OUTPUT -> OutputPage(
@@ -4002,6 +4003,7 @@ private fun BehaviorPage(
     onLearningMode: (Boolean) -> Unit,
     onSoftCompaction: (Boolean) -> Unit,
     onMinimalMode: (Boolean) -> Unit,
+    onContextWindow: (Int) -> Unit,
 ) {
     val colors = LocalChatColors.current
 
@@ -4052,6 +4054,23 @@ private fun BehaviorPage(
             onCheckedChange = onPreserveReasoning,
         )
     }
+
+    SettingsSectionLabel(stringResource(R.string.behavior_group_context))
+    SettingsCard {
+        SettingsChoiceRow(
+            label = stringResource(R.string.behavior_context_window),
+            value = contextWindowLabel(stored.contextWindowOverride),
+            selectedId = stored.contextWindowOverride.toString(),
+            options = ContextWindowOptions.map { it.first.toString() to contextWindowLabel(it.first) },
+            onSelect = { onContextWindow(it.toIntOrNull() ?: 0) },
+        )
+    }
+    Text(
+        text = stringResource(R.string.behavior_context_window_hint),
+        style = MaterialTheme.typography.labelSmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+    )
 
     SettingsSectionLabel(stringResource(R.string.behavior_group_mode))
     SettingsCard {
@@ -4761,4 +4780,16 @@ private fun FavoritesPage(
 
         Spacer(Modifier.height(24.dp))
     }
+}
+
+/** 上下文窗口的候选值：0 = 自动（按模型表）。 */
+private val ContextWindowOptions = listOf(0, 32_768, 65_536, 131_072, 262_144, 524_288, 1_048_576)
+
+/** 窗口的显示名：131072 → 128K，1048576 → 1M。 */
+@Composable
+private fun contextWindowLabel(tokens: Int): String = when {
+    tokens <= 0 -> stringResource(R.string.behavior_context_auto)
+    tokens % 1_048_576 == 0 -> "${tokens / 1_048_576}M"
+    tokens % 1024 == 0 -> "${tokens / 1024}K"
+    else -> tokens.toString()
 }

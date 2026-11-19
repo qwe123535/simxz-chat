@@ -577,7 +577,7 @@ class ChatViewModel(
             null
         }
         settings = settings.copy(
-            model = ModelCatalog.find(kind, value.modelId),
+            model = withWindow(ModelCatalog.find(kind, value.modelId), value.contextWindowOverride),
             reasoningLevel = runCatching { ReasoningLevel.valueOf(value.reasoningLevelId) }
                 .getOrDefault(ReasoningLevel.OFF),
             temperature = value.temperature,
@@ -2494,6 +2494,15 @@ class ChatViewModel(
         }
         return prepared
     }
+
+    /**
+     * 套用手动设置的上下文窗口。
+     *
+     * 0 = 不改（用模型表里的值）。预算条、自动压缩阈值都读 `settings.model.contextWindow`，
+     * 所以在这里改一处就全生效。
+     */
+    private fun withWindow(model: ModelInfo, override: Int): ModelInfo =
+        if (override > 0) model.copy(contextWindow = override) else model
 
     /** 把引用内容拼成模型看得懂的引用块。太长就截断 —— 引用的价值在"指哪句"。 */
     private fun quotePrefix(text: String): String {

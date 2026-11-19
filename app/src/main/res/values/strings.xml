@@ -872,4 +872,8 @@
     <string name="quote_cancel">取消引用</string>
     <string name="edit_history_label">已编辑 %1$d 次</string>
     <string name="edit_history_version">第 %1$d 版</string>
+    <string name="behavior_group_context">上下文</string>
+    <string name="behavior_context_window">上下文窗口</string>
+    <string name="behavior_context_auto">自动（按模型）</string>
+    <string name="behavior_context_window_hint">模型表认不出的模型默认按 128K 算。这里手动填真实值，预算条和自动压缩才会准 —— 填大了会在服务端被 400，填小了会提前压缩。</string>
 </resources>

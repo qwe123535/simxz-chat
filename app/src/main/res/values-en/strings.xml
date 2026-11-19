@@ -871,4 +871,8 @@
     <string name="quote_cancel">Cancel quote</string>
     <string name="edit_history_label">Edited %1$d times</string>
     <string name="edit_history_version">Version %1$d</string>
+    <string name="behavior_group_context">Context</string>
+    <string name="behavior_context_window">Context window</string>
+    <string name="behavior_context_auto">Auto (per model)</string>
+    <string name="behavior_context_window_hint">Models the built-in table does not know default to 128K. Set the real value here so the budget bar and auto-compaction match — too high gets a 400 from the server, too low compacts early.</string>
 </resources>

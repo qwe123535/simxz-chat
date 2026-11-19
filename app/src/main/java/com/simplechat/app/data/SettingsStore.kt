@@ -75,6 +75,14 @@ data class StoredSettings(
     val providerId: String = "DEEPSEEK",
     val baseUrl: String = "https://api.deepseek.com",
     val modelId: String = "deepseek-flash",
+    /**
+     * 手动指定上下文窗口；0 = 用模型表里的默认值。
+     *
+     * 为什么需要：模型表只认得"有名的"那些模型，自定义 / 本地部署的模型一律
+     * 按 128K 算。有人把 Ollama 的 num_ctx 开到 512K、或者服务商实际给了 32K，
+     * 预算条与自动压缩都得按真实值算，否则要么早压、要么压晚了被服务端 400。
+     */
+    val contextWindowOverride: Int = 0,
     val apiKey: String = "",
     val apiProfiles: List<ApiProfile> = emptyList(),
     val activeApiProfileId: String = "legacy",
@@ -391,6 +399,7 @@ class SettingsStore(
             providerId = prefs[Keys.PROVIDER] ?: StoredSettings().providerId,
             baseUrl = prefs[Keys.BASE_URL] ?: StoredSettings().baseUrl,
             modelId = prefs[Keys.MODEL] ?: StoredSettings().modelId,
+            contextWindowOverride = prefs[Keys.CONTEXT_WINDOW] ?: StoredSettings().contextWindowOverride,
             apiKey = readApiKey(prefs),
             apiProfiles = profileRows(prefs),
             activeApiProfileId = prefs[Keys.ACTIVE_PROFILE] ?: "legacy",
@@ -537,6 +546,11 @@ class SettingsStore(
             }
             prefs.remove(Keys.API_KEY)
         }
+    }
+
+    /** 0 = 自动（按模型表）。 */
+    suspend fun setContextWindowOverride(tokens: Int) {
+        preferences.edit { it[Keys.CONTEXT_WINDOW] = tokens.coerceIn(0, MAX_CONTEXT_WINDOW) }
     }
 
     suspend fun setReasoningLevel(levelId: String, expectedProfileId: String? = null) {
@@ -1063,6 +1077,9 @@ class SettingsStore(
         /** 最近搜索：最多留几条。再多也翻不到，而清空按钮旁边一屏塞不下。 */
         const val MAX_RECENT_SEARCHES = 8
 
+        /** 上下文窗口上限：2M，够覆盖现在所有长上下文模型，又不至于填错一个 0 就把内存算爆。 */
+        const val MAX_CONTEXT_WINDOW = 2_000_000
+
         /** 行高倍率的下限 / 上限。 */
         const val MIN_LINE_HEIGHT = 0.9f
         const val MAX_LINE_HEIGHT = 1.6f
@@ -1076,6 +1093,7 @@ class SettingsStore(
         val PROVIDER = stringPreferencesKey("provider_id")
         val BASE_URL = stringPreferencesKey("base_url")
         val MODEL = stringPreferencesKey("model_id")
+        val CONTEXT_WINDOW = intPreferencesKey("context_window_override")
 
         /** API Key 的**密文**（base64）。 */
         val API_KEY_ENC = stringPreferencesKey("api_key_enc")

@@ -1065,10 +1065,13 @@ fun AssistantBlock(
         }
 
         /*
-         * 思考 / 时间线面板属于"高级功能"：DeepSeek 皮肤默认不显示。
-         * 这是**渲染层**的隐藏，不是不记录 —— 打开开关立刻回来。
+         * 思考 / 时间线面板**永远显示**。
+         *
+         * 早先它跟着「显示高级功能」开关一起藏，结果是：想看看模型怎么想的，
+         * 还得先去设置里翻开关 —— 而"看思考过程"本来就是推理模型的核心卖点，
+         * 不该是隐藏项。现在「显示高级功能」只管每句用量、操作栏、/ 指令面板。
          */
-        if (LocalShowExtras.current && timeline != null) {
+        if (timeline != null) {
             if (timeline.hasSteps) {
                 TimelinePanel(
                     view = timeline,
@@ -1082,7 +1085,7 @@ fun AssistantBlock(
                 )
                 Spacer(Modifier.size(messageGap()))
             }
-        } else if (LocalShowExtras.current && hasReasoning) {
+        } else if (hasReasoning) {
             ProcessPanel(
                 reasoning = message.reasoning.orEmpty(),
                 /*
