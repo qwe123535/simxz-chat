@@ -30,11 +30,11 @@ android {
     buildToolsVersion = "37.0.0"
 
     defaultConfig {
-        applicationId = "com.simplechat.app"
+        applicationId = "com.simxz.chat"
         minSdk = 26
         targetSdk = 37
-        versionCode = 22
-        versionName = "1.1.5"
+        versionCode = 1
+        versionName = "0.1"
         testInstrumentationRunner = "com.simplechat.app.DeviceRegression"
         vectorDrawables { useSupportLibrary = true }
     }
