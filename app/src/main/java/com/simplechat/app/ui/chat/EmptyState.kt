@@ -13,10 +13,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.simplechat.app.R
 import com.simplechat.app.ui.common.AppIcons
+import com.simplechat.app.ui.theme.LocalUiStyle
+import com.simplechat.app.ui.theme.UiStyle
 
 /**
  * 空态：一个线性气泡 + 一句话。
@@ -32,6 +35,28 @@ import com.simplechat.app.ui.common.AppIcons
 fun EmptyState(
     modifier: Modifier = Modifier,
 ) {
+    val deepSeek = LocalUiStyle.current == UiStyle.DEEPSEEK
+    if (deepSeek) {
+        /*
+         * DeepSeek 的空态只有一句话，居中偏下、20sp 半粗，没有图标也没有建议卡。
+         * 输入框就在下面 —— 那套界面里"开场白"和"开始输入"是一个整体。
+         */
+        Column(
+            modifier = modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.empty_greeting),
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onBackground,
+                textAlign = TextAlign.Center,
+            )
+        }
+        return
+    }
     Column(
         modifier = modifier
             .fillMaxWidth()
