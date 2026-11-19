@@ -17,7 +17,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -81,7 +81,7 @@ internal fun ThinkingHeader(
         Text(
             text = label,
             style = MaterialTheme.typography.titleSmall,
-            color = color,
+            color = colors.processText,
         )
         // 进行中不给箭头：还在写，没有"折叠"这个动作可做
         if (enabled) {
