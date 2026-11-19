@@ -173,6 +173,9 @@ fun MessageList(
      * 后者管"正文开始时自动收起"，这个管"一进来就摊开"。
      */
     processAutoExpand: Boolean = false,
+    /** 这一轮等待首 token 的文案（由 ViewModel 在流开始时挑好）。 */
+    loadingLabelFor: (String) -> String? = { null },
+    loadingWordsUseThemeColor: Boolean = false,
     /** 已收藏的消息 id（收藏状态存在设置里，不在消息表里）。 */
     favorites: Set<String> = emptySet(),
     onToggleFavorite: (UiMessage) -> Unit = {},
@@ -300,6 +303,8 @@ fun MessageList(
                 readAloudAvailable = readAloudAvailable,
                 autoCollapseThinking = autoCollapseThinking,
                 processAutoExpand = processAutoExpand,
+                loadingLabel = loadingLabelFor(message.id),
+                loadingWordsUseThemeColor = loadingWordsUseThemeColor,
                 /*
                  * 折叠/展开**不需要任何视口补偿**（顶部为原点）。
                  *
@@ -355,6 +360,8 @@ private fun MessageRow(
     readAloudAvailable: Boolean,
     autoCollapseThinking: Boolean,
     processAutoExpand: Boolean = false,
+    loadingLabel: String? = null,
+    loadingWordsUseThemeColor: Boolean = false,
     onTogglePeek: () -> Unit,
     onCopy: () -> Unit,
     onRegenerate: () -> Unit,
@@ -491,6 +498,8 @@ private fun MessageRow(
                 selectionState = selectionState,
                 autoCollapseThinking = autoCollapseThinking,
                 processAutoExpand = processAutoExpand,
+                loadingLabel = loadingLabel,
+                loadingWordsUseThemeColor = loadingWordsUseThemeColor,
                 // 点一下 = 看这条是谁写的、占多少 token（再点收起）
                 onClick = onTogglePeek,
                 onLongClick = { menuOpen = true },
@@ -922,6 +931,8 @@ fun AssistantBlock(
     /** 思考内容是否自动收起；见 `MessageList` 的同名参数。 */
     autoCollapseThinking: Boolean = true,
     processAutoExpand: Boolean = false,
+    loadingLabel: String? = null,
+    loadingWordsUseThemeColor: Boolean = false,
 ) {
     /*
      * 初态由设置决定（`TODO.md` 里那条"只写不读"的开关就是这里接上的）：
@@ -996,7 +1007,7 @@ fun AssistantBlock(
          * 「加载中…」过渡，第一段内容一出现就自动让位。
          */
         if (message.streaming && answer.isBlank() && !hasReasoning && timeline == null) {
-            WaitingIndicator()
+            WaitingIndicator(loadingLabel, useThemeColor = loadingWordsUseThemeColor)
             Spacer(Modifier.size(MessageGap))
         }
 
