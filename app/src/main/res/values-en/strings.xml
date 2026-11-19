@@ -839,4 +839,5 @@
     <string name="ui_style_original">Original</string>
     <string name="ui_style_deepseek">DeepSeek style</string>
     <string name="settings_show_extras">Show advanced features</string>
+    <string name="about_original_project">Upstream project</string>
 </resources>
