@@ -71,6 +71,8 @@ import com.simplechat.app.data.TokenEstimate
 import com.simplechat.app.data.Res
 import com.simplechat.app.ui.common.IconCircleButton
 import com.simplechat.app.ui.common.rememberHaptics
+import com.simplechat.app.ui.theme.LocalUiStyle
+import com.simplechat.app.ui.theme.UiStyle
 import com.simplechat.app.ui.common.MotionEasing
 import com.simplechat.app.ui.common.PillShape
 import com.simplechat.app.ui.common.ProgressRing
@@ -154,6 +156,11 @@ fun InputBar(
 ) {
     val colors = LocalChatColors.current
     val shape = ContainerShape
+    /*
+     * DeepSeek 皮肤的输入栏是**填充色块**：灰底、无描边、无投影。
+     * 我们原版是白卡片 + 描边 + 投影 —— 那是两套不同的语言，不能只换颜色。
+     */
+    val deepSeek = LocalUiStyle.current == UiStyle.DEEPSEEK
     val haptics = rememberHaptics()
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
@@ -205,14 +212,14 @@ fun InputBar(
                 // 双层（宽 + 贴边）—— 单层只有一种扩散，大面板的边缘会发虚。
                 .layeredShadow(
                     shape = ContainerShape,
-                    elevation = shadowElevation,
+                    elevation = if (deepSeek) 0.dp else shadowElevation,
                     ambient = AppShadow.PanelAmbient,
                     spot = AppShadow.PanelSpot,
                     contactElevation = shadowElevation / 4,
                     contactColor = AppShadow.PanelContactColor,
                 )
                 .clip(shape)
-                .background(colors.card)
+                .background(if (deepSeek) colors.fieldBackground else colors.card)
                 /*
                  * 按住说话：挂在**整条输入栏**上，而不是输入框上。
                  *
@@ -234,7 +241,7 @@ fun InputBar(
                         onVoiceHoldEnd()
                     }
                 }
-                .border(1.dp, colors.outline, shape)
+                .border(1.dp, if (deepSeek) Color.Transparent else colors.outline, shape)
                 .padding(horizontal = 16.dp, vertical = 12.dp),
         ) {
             // ── 「修改输入」标题行 ─────────────────────────
