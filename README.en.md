@@ -1,10 +1,18 @@
-# SimpleChat
+# simxz-chat
+
+> **Unofficial fork.**
+> This project is a modified fork of the official
+> [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat), renamed **simxz-chat**
+> with application ID `com.simxz.chat` (it can be installed alongside the official app).
+> It is not affiliated with the upstream project; report issues here, and treat the
+> upstream repository as the source of truth for features and documentation.
+
 
 > A lightweight, natively fast AI chat client for Android. Built with Jetpack Compose; the R8-minified release APK is about 3.8 MB.
 
 **[中文](README.md) | English**
 
-[![Version](https://img.shields.io/badge/version-1.1.5-blue)](https://github.com/Pokanshuu/Simple-Chat/releases)
+[![Version](https://img.shields.io/badge/version-0.1-blue)](https://github.com/qwe123535/simxz-chat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## Introduction
@@ -184,6 +192,8 @@ Issues and pull requests are welcome. Please keep the change focused and run `./
 ## License
 
 Released under the [MIT](LICENSE) license.
+
+This project is a modified fork of the official [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat) and is distributed under the same MIT license; copyright of the original work belongs to its authors.
 
 
 
