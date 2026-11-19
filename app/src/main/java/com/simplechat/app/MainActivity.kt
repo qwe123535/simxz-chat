@@ -1,6 +1,7 @@
 package com.simplechat.app
 
 import android.content.Context
+import android.content.Intent
 import android.os.Bundle
 import android.view.WindowManager
 import androidx.activity.ComponentActivity
@@ -14,8 +15,12 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.simplechat.app.data.AppLanguage
 import com.simplechat.app.data.AppForeground
 import com.simplechat.app.data.AppLock
+import com.simplechat.app.data.PendingOpen
+import com.simplechat.app.service.CompletionNotifier
 import com.simplechat.app.data.LocaleHelper
+import com.simplechat.app.net.ProviderKind
 import com.simplechat.app.ui.LockScreen
+import com.simplechat.app.ui.OnboardingScreen
 import com.simplechat.app.ui.RootScreen
 import com.simplechat.app.ui.theme.AccentColor
 import com.simplechat.app.ui.theme.ApplySystemBarAppearance
@@ -55,6 +60,12 @@ class MainActivity : ComponentActivity() {
         installSplashScreen()
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
+        val container = (application as App).container
+        val store = container.settingsStore
+
+        // 通知点进来：交给 UI 层去开那个会话（见 PendingOpen 的说明）
+        handleOpenIntent(intent)
 
         val settingsStore = (application as App).container.settingsStore
         val systemFontScale = resources.configuration.fontScale.coerceAtLeast(0.01f)
@@ -123,8 +134,49 @@ class MainActivity : ComponentActivity() {
                         window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
                     }
                 }
-                if (AppLock.locked) LockScreen() else RootScreen()
+                val onboard = current
+                val showOnboarding = onboard != null && !onboard.onboardingDone
+                if (AppLock.locked) {
+                    LockScreen()
+                } else if (showOnboarding && onboard != null) {
+                    /*
+                     * 首次引导盖在对话页**之前**：它不是一个可以返回的页面，
+                     * 走完就再也看不到（没有设置入口去重开，想重看只能清数据）。
+                     * 放在 Activity 这一层而不是 RootScreen 里，是因为 RootScreen
+                     * 要建两个 ViewModel、拉会话列表，引导页不需要那些。
+                     */
+                    OnboardingScreen(
+                        stored = onboard,
+                        provider = runCatching { ProviderKind.valueOf(onboard.providerId) }
+                            .getOrDefault(ProviderKind.DEEPSEEK),
+                        chatApi = container.chatApi,
+                        onSaveKey = { store.setApiKey(it) },
+                        onSaveModel = { model ->
+                            store.setProvider(
+                                providerId = onboard.providerId.ifBlank { ProviderKind.DEEPSEEK.name },
+                                baseUrl = onboard.baseUrl,
+                                modelId = model,
+                            )
+                        },
+                        onDone = { store.setOnboardingDone(true) },
+                    )
+                } else {
+                    RootScreen()
+                }
             }
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleOpenIntent(intent)
+    }
+
+    /** 从通知的 Intent 里取出「打开哪个会话、滚到哪条消息」。 */
+    private fun handleOpenIntent(intent: Intent?) {
+        val conversationId = intent?.getStringExtra(CompletionNotifier.EXTRA_CONVERSATION_ID) ?: return
+        val messageId = intent.getStringExtra(CompletionNotifier.EXTRA_MESSAGE_ID)
+        PendingOpen.post(conversationId, messageId)
     }
 }

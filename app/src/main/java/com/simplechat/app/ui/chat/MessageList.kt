@@ -23,12 +23,15 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -36,6 +39,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
@@ -95,6 +99,7 @@ import com.simplechat.app.ui.markdown.SearchHighlightHost
 import com.simplechat.app.ui.markdown.LocalSearchHighlight
 import com.simplechat.app.ui.markdown.rememberSearchTextDecoration
 import com.simplechat.app.ui.theme.ChatColors
+import com.simplechat.app.ui.common.MenuShape
 import com.simplechat.app.ui.theme.LocalChatColors
 import com.simplechat.app.ui.common.PillShape
 import androidx.compose.animation.animateContentSize
@@ -186,6 +191,7 @@ fun MessageList(
     onToggleFavorite: (UiMessage) -> Unit = {},
     /** 把这一段对话渲染成一张长图并分享。 */
     onShareImage: (UiMessage) -> Unit = {},
+    onQuote: (UiMessage) -> Unit = {},
     searchTarget: SearchTarget? = null,
     onDismissSearch: () -> Unit = {},
     searchBottomObstructionPx: Int = 0,
@@ -338,6 +344,7 @@ fun MessageList(
                 favorited = message.id in favorites,
                 onToggleFavorite = { onToggleFavorite(message) },
                 onShareImage = { onShareImage(message) },
+                onQuote = { onQuote(message) },
             )
         }
     }
@@ -382,6 +389,7 @@ private fun MessageRow(
     favorited: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     onShareImage: () -> Unit = {},
+    onQuote: () -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     /*
@@ -544,6 +552,12 @@ private fun MessageRow(
             if (LocalShowExtras.current) UsageRow(message)
         }
 
+        // 编辑过的消息：给一个能点开的「历史」，否则改完就再也看不到旧版本
+        if (message.editCount > 0 && !message.streaming) {
+            Spacer(Modifier.size(4.dp))
+            EditHistoryNote(message)
+        }
+
         if (actionable && !isUser && !LocalMinimalMode.current && LocalShowExtras.current) {
             Spacer(Modifier.size(messageGap()))
             MessageActions(
@@ -562,6 +576,7 @@ private fun MessageRow(
                 favorited = favorited,
                 onToggleFavorite = onToggleFavorite,
                 onShareImage = onShareImage,
+                onQuote = onQuote,
             )
         }
     }
@@ -754,6 +769,37 @@ fun UserBubble(
                         onOpenImage = onOpenImage,
                         inUserBubble = true,
                     )
+                    /*
+                     * 引用块：贴在正文上方，左侧一条竖线 —— 和 Markdown 的引用
+                     * 同一个视觉语言，不用另学一套。
+                     */
+                    message.quoteText?.takeIf { it.isNotBlank() }?.let { quoted ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .background(
+                                    colors.onUserBubble.copy(alpha = 0.06f),
+                                    RoundedCornerShape(8.dp),
+                                )
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .width(2.dp)
+                                    .height(IntrinsicSize.Max)
+                                    .background(colors.onUserBubble.copy(alpha = 0.45f), CircleShape),
+                            )
+                            Spacer(Modifier.size(8.dp))
+                            Text(
+                                text = quoted,
+                                style = MaterialTheme.typography.labelMedium,
+                                color = colors.onUserBubble.copy(alpha = 0.75f),
+                                maxLines = 3,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.weight(1f),
+                            )
+                        }
+                    }
                     if (message.content.isNotBlank()) {
                         /*
                          * 超长正文的**两态渲染**（根因与实测见设计文档 §31）：
@@ -1065,11 +1111,38 @@ fun AssistantBlock(
          * 流式的开销靠两道闸压住：上游按固定节奏采样（见 `MarkdownText`），
          * 下游逐块渲染、只有尾块重解析（见 `MarkdownTextBlocks`）。
          */
-        SelectableText(selecting, selectionState) {
-            MarkdownWithMath(
-                content = answer,
-                streaming = message.streaming,
-            )
+        /*
+         * 失败的消息**不能看起来和成功的一样**。
+         *
+         * 之前只有底下那行红字 + 重试按钮，正文本身和正常回复长得一模一样，
+         * 滚过去一眼分不出哪条挂了。这里给正文套一层淡红底 + 红描边：
+         * 颜色本身就是状态，不用读字。
+         */
+        val failed = message.errorMessage != null && !message.streaming
+        if (failed) {
+            val failColors = LocalChatColors.current
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MenuShape)
+                    .background(failColors.danger.copy(alpha = 0.06f))
+                    .border(1.dp, failColors.danger.copy(alpha = 0.30f), MenuShape)
+                    .padding(horizontal = 12.dp, vertical = 10.dp),
+            ) {
+                SelectableText(selecting, selectionState) {
+                    MarkdownWithMath(
+                        content = answer,
+                        streaming = message.streaming,
+                    )
+                }
+            }
+        } else {
+            SelectableText(selecting, selectionState) {
+                MarkdownWithMath(
+                    content = answer,
+                    streaming = message.streaming,
+                )
+            }
         }
 
         // 正文下方的来源条：与正文角标同一套编号，两条路都能点开
@@ -1118,6 +1191,72 @@ fun AssistantBlock(
     }
 }
 
+/**
+ * 「已编辑」小标签 + 可展开的旧版本。
+ *
+ * 默认收起 —— 历史是排查用的，不是每次都要看。
+ */
+@Composable
+private fun EditHistoryNote(message: UiMessage) {
+    val colors = LocalChatColors.current
+    var expanded by remember(message.id) { mutableStateOf(false) }
+    val versions = message.editHistoryList
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .clip(PillShape)
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 8.dp, vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = if (expanded) AppIcons.ChevronDown else AppIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.placeholder,
+                modifier = Modifier.size(12.dp),
+            )
+            Spacer(Modifier.size(4.dp))
+            Text(
+                text = stringResource(R.string.edit_history_label, versions.size),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.placeholder,
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(start = 8.dp, bottom = 6.dp),
+                verticalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                versions.forEachIndexed { index, text ->
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .background(colors.fieldBackground, MenuShape)
+                            .padding(horizontal = 10.dp, vertical = 8.dp),
+                    ) {
+                        Text(
+                            text = stringResource(
+                                R.string.edit_history_version,
+                                versions.size - index,
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = colors.placeholder,
+                        )
+                        Spacer(Modifier.size(2.dp))
+                        Text(
+                            text = text,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurface,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
 /** 消息下方操作栏：复制 / 续写 / 朗读 / 编辑 / 删除，以及版本切换器。 */
 @Composable
 private fun MessageActions(
@@ -1136,6 +1275,7 @@ private fun MessageActions(
     favorited: Boolean = false,
     onToggleFavorite: () -> Unit = {},
     onShareImage: () -> Unit = {},
+    onQuote: () -> Unit = {},
 ) {
     val colors = LocalChatColors.current
 
@@ -1196,6 +1336,7 @@ private fun MessageActions(
             onClick = onShareImage,
             colors = colors,
         )
+        ActionIcon(AppIcons.MessageSquare, stringResource(R.string.action_quote), onQuote, colors)
         ActionIcon(AppIcons.Edit, stringResource(R.string.action_edit), onEdit, colors)
         ActionIcon(AppIcons.Trash, stringResource(R.string.action_delete), onDelete, colors)
 

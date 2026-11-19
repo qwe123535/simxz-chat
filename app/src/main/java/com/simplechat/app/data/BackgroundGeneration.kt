@@ -54,10 +54,10 @@ object BackgroundGeneration {
      * 通知带一个输入框和「继续生成」两个动作，用户不用回 App 就能接上话。
      * 应用在前台时**什么都不发**：用户正看着屏幕，通知只是噪音。
      */
-    fun notifyDone(conversationId: String, title: String, preview: String) {
+    fun notifyDone(conversationId: String, messageId: String?, title: String, preview: String) {
         val context = appContext ?: return
         if (AppForeground.visible) return
-        CompletionNotifier.show(context, conversationId, title, preview)
+        CompletionNotifier.show(context, conversationId, messageId, title, preview)
     }
 
     fun sync(generating: Boolean) {

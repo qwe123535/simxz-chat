@@ -30,8 +30,15 @@ object CompletionNotifier {
     const val NOTIFICATION_ID = 0x5C02
     const val KEY_REPLY_TEXT = "reply_text"
     const val EXTRA_CONVERSATION_ID = "conversation_id"
+    const val EXTRA_MESSAGE_ID = "message_id"
 
-    fun show(context: Context, conversationId: String, title: String, preview: String) {
+    fun show(
+        context: Context,
+        conversationId: String,
+        messageId: String?,
+        title: String,
+        preview: String,
+    ) {
         runCatching {
             createChannel(context)
 
@@ -40,7 +47,8 @@ object CompletionNotifier {
                 conversationId.hashCode(),
                 Intent(context, MainActivity::class.java)
                     .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP)
-                    .putExtra(EXTRA_CONVERSATION_ID, conversationId),
+                    .putExtra(EXTRA_CONVERSATION_ID, conversationId)
+                    .putExtra(EXTRA_MESSAGE_ID, messageId),
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
 

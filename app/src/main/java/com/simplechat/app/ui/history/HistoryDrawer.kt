@@ -31,6 +31,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import com.simplechat.app.R
 import com.simplechat.app.db.ConversationEntity
 import com.simplechat.app.ui.common.AppIcons
+import com.simplechat.app.ui.common.CapsuleButton
 import com.simplechat.app.ui.common.AppMenu
 import com.simplechat.app.ui.common.AppMenuDivider
 import com.simplechat.app.ui.common.AppMenuItem
@@ -119,6 +121,8 @@ fun HistoryDrawerContent(
     unseenDone: Set<String> = emptySet(),
     /** 本次运行里失败过的会话。 */
     failedConversations: Set<String> = emptySet(),
+    /** 空列表里的「新建对话」按钮。空列表只留一句灰字等于把人卡死在这里。 */
+    onNewConversation: () -> Unit = {},
 ) {
     val colors = LocalChatColors.current
 
@@ -140,16 +144,38 @@ fun HistoryDrawerContent(
         val grouped = remember(conversations) { groupConversations(conversations) }
 
         if (conversations.isEmpty()) {
-            Box(
+            Column(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center,
+                    .weight(1f)
+                    .padding(horizontal = 24.dp),
+                verticalArrangement = Arrangement.Center,
+                horizontalAlignment = Alignment.CenterHorizontally,
             ) {
+                Icon(
+                    imageVector = AppIcons.Bubble,
+                    contentDescription = null,
+                    tint = colors.placeholder,
+                    modifier = Modifier.size(34.dp),
+                )
+                Spacer(Modifier.size(12.dp))
                 Text(
                     text = stringResource(R.string.hist_empty),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = colors.placeholder,
+                )
+                Spacer(Modifier.size(6.dp))
+                Text(
+                    text = stringResource(R.string.hist_empty_hint),
                     style = MaterialTheme.typography.labelMedium,
                     color = colors.placeholder,
+                    textAlign = TextAlign.Center,
+                )
+                Spacer(Modifier.size(16.dp))
+                CapsuleButton(
+                    text = stringResource(R.string.hist_empty_action),
+                    onClick = onNewConversation,
+                    leadingIcon = AppIcons.MessageSquarePlus,
                 )
             }
         } else {

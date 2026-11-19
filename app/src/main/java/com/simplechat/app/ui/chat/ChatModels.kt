@@ -249,7 +249,21 @@ data class UiMessage(
     val tokensIn: Int? = null,
     /** 这一轮服务端报的输出 token 数。 */
     val tokensOut: Int? = null,
+    /** 引用回复：被引用消息的正文快照（只有用户消息会有）。 */
+    val quoteText: String? = null,
+    /** 编辑过的旧正文，新的在前，用 `MessageEntity.HISTORY_SEPARATOR` 分隔。 */
+    val editHistory: String? = null,
 ) {
+    /** 旧版本列表，新的在前。没编辑过就是空表。 */
+    val editHistoryList: List<String>
+        get() = editHistory
+            ?.split(com.simplechat.app.db.MessageEntity.HISTORY_SEPARATOR)
+            ?.filter { it.isNotBlank() }
+            ?: emptyList()
+
+    /** 编辑过几次（= 有几版旧内容）。 */
+    val editCount: Int get() = editHistoryList.size
+
     val streaming: Boolean get() = status == MessageStatus.STREAMING
 
     /** 这一轮的**总**用量（输入 + 输出）；两边都没记录就是 null。 */

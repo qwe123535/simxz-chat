@@ -29,6 +29,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.DragInteraction
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -111,6 +112,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.collectLatest
+import java.util.Locale
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
@@ -321,6 +323,8 @@ fun ChatScreen(
 
     /** 全屏查看的图片：本条的全部图片 + 当前点开的那张。 */
     var viewingImage by remember { mutableStateOf<Pair<List<Attachment>, Attachment>?>(null) }
+    /** 正在引用的消息；null = 没在引用。 */
+    var quoted by remember { mutableStateOf<UiMessage?>(null) }
 
     /*
      * ⚠️⚠️ **输入状态必须按会话分开。**
@@ -851,6 +855,11 @@ fun ChatScreen(
     }
 
     /** 追加新消息后跟到底部（用户没离开时）。 */
+    // 上下文占用只在消息变化时重算（估算要遍历全部消息，不能跟着输入框走）
+    LaunchedEffect(vm.messages.size, vm.messages.lastOrNull()?.content?.length, vm.currentConversationId) {
+        vm.refreshContextUsage()
+    }
+
     LaunchedEffect(vm.messages.size) {
         if (vm.messages.isNotEmpty()) StartupTrace.mark(context, "data.chat.first")
         if (vm.searchTarget != null) return@LaunchedEffect
@@ -1175,6 +1184,7 @@ fun ChatScreen(
     ) {
         ChatTopBar(
             title = vm.conversationTitle(),
+            subtitle = vm.branchLabel,
             autoReadAloud = vm.autoReadAloud,
             readAloudAvailable = ReadAloudEnabled && readAloudAvailable,
             onToggleAutoReadAloud = {
@@ -1294,6 +1304,10 @@ fun ChatScreen(
                         loadingWordsUseThemeColor = vm.loadingWordsUseThemeColor,
                         favorites = vm.favoriteMessages,
                         onToggleFavorite = { message -> vm.toggleFavorite(message.id) },
+                        onQuote = { message ->
+                            quoted = message
+                            dismissInput()
+                        },
                         onShareImage = { message ->
                             /*
                              * 长图：从这条往上取一段（含它自己），最多 30 条。
@@ -1501,11 +1515,59 @@ fun ChatScreen(
                     BannerBar(message = message, onDismiss = { speechError = null })
                 }
 
+                /*
+                 * 引用条：正在回应哪一句。
+                 *
+                 * 贴在输入栏上方、附件行之前 —— 从上往下是"回应谁 → 挂了什么 → 说什么"。
+                 */
+                quoted?.let { target ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 16.dp, vertical = 2.dp)
+                            .clip(MenuShape)
+                            .background(LocalChatColors.current.fieldBackground)
+                            .padding(start = 12.dp, end = 4.dp, top = 8.dp, bottom = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .width(2.dp)
+                                .height(IntrinsicSize.Max)
+                                .background(MaterialTheme.colorScheme.primary, CircleShape),
+                        )
+                        Spacer(Modifier.size(8.dp))
+                        Text(
+                            text = target.content.replace('\n', ' ').take(80),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = LocalChatColors.current.placeholder,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        IconCircleButton(
+                            icon = AppIcons.Close,
+                            contentDescription = stringResource(R.string.quote_cancel),
+                            onClick = { quoted = null },
+                            size = 28.dp,
+                            iconSize = 14.dp,
+                        )
+                    }
+                }
+
                 // 待发送附件排在输入栏**上面**：先看到"我挂了什么"，再看到输入框
                 PendingAttachmentsRow(
                     attachments = pending,
                     onRemove = { spec -> pending = pending - spec },
                     onOpen = { spec -> viewingImage = pending.filter { it.isImage } to spec },
+                    onMove = { from, to ->
+                        if (from in pending.indices && to in pending.indices) {
+                            val next = pending.toMutableList()
+                            val moved = next.removeAt(from)
+                            next.add(to, moved)
+                            pending = next
+                        }
+                    },
                 )
 
                 /*
@@ -1514,6 +1576,19 @@ fun ChatScreen(
                  * 条件是"还没空格"—— 用户开始写正文（`/翻译 这段话`）之后面板就该让开，
                  * 否则它会一直挡在输入栏上面。
                  */
+                /*
+                 * 上下文预算条：输入框上方一行细条 + 数字。
+                 *
+                 * 只在知道窗口大小、且真的用了上下文时才出现 ——
+                 * 没有窗口信息的自定义端点显示一个永远 0/0 的条毫无意义。
+                 */
+                if (vm.contextWindowTokens > 0 && vm.contextUsedTokens > 0) {
+                    ContextBudgetBar(
+                        used = vm.contextUsedTokens,
+                        window = vm.contextWindowTokens,
+                    )
+                }
+
                 val slashQuery = input.trimStart()
                 // DeepSeek 皮肤默认不显示 `/` 指令面板 —— 那套界面里没有这个入口
                 if (LocalShowExtras.current && slashQuery.startsWith("/") && !slashQuery.contains(' ')) {
@@ -1613,7 +1688,14 @@ fun ChatScreen(
                                 // 输入栏的发送键就是「保存并发送」，不再让用户做二次选择
                                 requestResend(target, submitted, attached, clearPersistedInput)
                             } else {
-                                vm.send(submitted, attached, clearPersistedInput)
+                                val quotedText = quoted?.content
+                                vm.send(
+                                    prompt = submitted,
+                                    attachments = attached,
+                                    onPersisted = clearPersistedInput,
+                                    quote = quotedText,
+                                )
+                                quoted = null
                             }
                         }
                     },
@@ -2047,3 +2129,58 @@ private fun SlashCommandPanel(
         }
     }
 }
+
+
+/**
+ * 上下文预算条：`已用 12.3K / 128K`，超过 85% 变黄。
+ *
+ * 数字用等宽字，避免每次刷新时宽度跳动。
+ */
+@Composable
+private fun ContextBudgetBar(used: Int, window: Int) {
+    val colors = LocalChatColors.current
+    val ratio = (used.toFloat() / window.toFloat()).coerceIn(0f, 1f)
+    val alert = ratio >= 0.85f
+    val tint = if (alert) colors.warning else MaterialTheme.colorScheme.primary
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                text = stringResource(R.string.context_budget_label, formatTokens(used), formatTokens(window)),
+                style = MaterialTheme.typography.labelSmall,
+                color = if (alert) colors.warning else colors.placeholder,
+                modifier = Modifier.weight(1f),
+            )
+            if (alert) {
+                Text(
+                    text = stringResource(R.string.context_budget_hint),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.warning,
+                )
+            }
+        }
+        Spacer(Modifier.size(4.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(2.dp)
+                .clip(CircleShape)
+                .background(colors.outline),
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(ratio)
+                    .height(2.dp)
+                    .clip(CircleShape)
+                    .background(tint),
+            )
+        }
+    }
+}
+
+/** 12_300 → 12.3K；不足一千原样显示。 */
+private fun formatTokens(value: Int): String =
+    if (value < 1000) value.toString() else String.format(Locale.US, "%.1fK", value / 1000f)

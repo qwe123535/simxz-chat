@@ -858,7 +858,13 @@ class ChatViewModel(
 
     // ── 发送 ──────────────────────────────────────────────
 
-    fun send(prompt: String, attachments: List<Attachment> = emptyList(), onPersisted: () -> Unit = {}) {
+    fun send(
+        prompt: String,
+        attachments: List<Attachment> = emptyList(),
+        onPersisted: () -> Unit = {},
+        /** 引用回复：被引用那条消息的正文快照。 */
+        quote: String? = null,
+    ) {
         val text = prompt.trim()
         // 允许「只有附件、没有文字」—— 丢一张图进来说"看看这个"是最自然的用法
         if ((text.isEmpty() && attachments.isEmpty()) || switching) return
@@ -897,7 +903,7 @@ class ChatViewModel(
                 val generation = requestedGeneration
                 val model = settings.model.id
 
-                val user = repository.appendUserMessage(conversationId, text, attachments)
+                val user = repository.appendUserMessage(conversationId, text, attachments, quoteText = quote)
                 if (generation != switchGeneration || conversationId != currentConversationId) return@launch
                 onPersisted()
                 // 首条用户消息会触发库里自动命名，顶栏同步一次
@@ -1032,6 +1038,41 @@ class ChatViewModel(
             banner = Res.get(R.string.compact_auto_done)
         }
     }
+
+    /*
+     * ── 输入框上方的预算条 ────────────────────────────────
+     *
+     * 用状态而不是 `get()`：估算要遍历全部消息并逐个分词，
+     * 每敲一个字都重算一遍会直接拖慢输入。
+     * 由 ChatScreen 在「消息变了」时推一次（见 refreshContextUsage）。
+     */
+    var contextUsedTokens by mutableStateOf(0)
+        private set
+    var contextWindowTokens by mutableStateOf(0)
+        private set
+
+    /** 消息或模型变化后调用；只在真正需要时才算。 */
+    fun refreshContextUsage() {
+        contextUsedTokens = estimateContextTokens()
+        contextWindowTokens = settings.model.contextWindow
+    }
+
+    /**
+     * 分支位置，形如「分支 2/3」；没有分支时返回 null。
+     *
+     * 只看**最后一条**助手消息：它才是当前所在的叶子。
+     * 切了分支却不显示位置，用户很容易不知道自己在第几条上。
+     */
+    val branchLabel: String?
+        get() {
+            val leaf = messages.lastOrNull { it.role == MessageRole.ASSISTANT } ?: return null
+            if (leaf.variantCount <= 1) return null
+            return Res.get(
+                R.string.branch_position,
+                leaf.variantIndex + 1,
+                leaf.variantCount,
+            )
+        }
 
     /** 这一轮请求大致会用多少 token（系统提示词 + 全部可见正文）。 */
     private fun estimateContextTokens(): Int {
@@ -2193,6 +2234,7 @@ class ChatViewModel(
                             .orEmpty()
                         BackgroundGeneration.notifyDone(
                             conversationId = doneId,
+                            messageId = replyId,
                             title = title,
                             preview = preview.take(160),
                         )
@@ -2453,6 +2495,12 @@ class ChatViewModel(
         return prepared
     }
 
+    /** 把引用内容拼成模型看得懂的引用块。太长就截断 —— 引用的价值在"指哪句"。 */
+    private fun quotePrefix(text: String): String {
+        val trimmed = text.trim().take(MaxQuoteChars)
+        return trimmed.lineSequence().joinToString("\n") { "> $it" } + "\n\n"
+    }
+
     private suspend fun buildRequestMessages(): List<OutMessageDto> {
         skippedNoVision = 0; skippedUnreadable = 0
         val request = mutableListOf<OutMessageDto>()
@@ -2486,6 +2534,11 @@ class ChatViewModel(
             val outgoing = if (message.role == MessageRole.USER && message.attachments.isNotEmpty()) {
                 message.copy(attachments = outgoingAttachments(message.attachments))
             } else message
+            /*
+             * 引用回复：把被引用那段一起带给模型，否则它只看到"这段话"，
+             * 完全不知道用户在回应哪一句。用 `>` 引用块是最省事、模型也认得的写法。
+             */
+            val quoted = message.quoteText?.takeIf { it.isNotBlank() }
             if (!isSendableOutgoing(outgoing)) return@forEach
             request += OutMessageDto(
                 role = if (message.role == MessageRole.USER) "user" else "assistant",
@@ -2510,9 +2563,14 @@ class ChatViewModel(
                  * 在协议里是不合法的（会 400），而 AI 回复本来也不该带图。
                  */
                 content = if (message.role != MessageRole.USER || message.attachments.isEmpty()) {
-                    MessageContent.text(message.content)
+                    MessageContent.text(
+                        if (quoted != null) quotePrefix(quoted) + message.content else message.content,
+                    )
                 } else {
-                    userContent(outgoing.content, outgoing.attachments)
+                    userContent(
+                        if (quoted != null) quotePrefix(quoted) + outgoing.content else outgoing.content,
+                        outgoing.attachments,
+                    )
                 },
             )
         }
@@ -2556,6 +2614,9 @@ class ChatViewModel(
     }
 
     companion object {
+        /** 引用进提示词时的上限，防止引用整篇长回复把上下文撑爆。 */
+        const val MaxQuoteChars = 800
+
         /**
          * 流式增量的提交间隔（毫秒）。
          *

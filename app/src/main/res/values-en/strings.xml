@@ -840,4 +840,35 @@
     <string name="ui_style_deepseek">DeepSeek style</string>
     <string name="settings_show_extras">Show advanced features</string>
     <string name="about_original_project">Upstream project</string>
+
+    <!-- First-run onboarding: key -> model -> first message -->
+    <string name="onboarding_key_title">Connect your model</string>
+    <string name="onboarding_key_body">Paste an API key to get started. Using a local model (Ollama etc.)? You can skip this step.</string>
+    <string name="onboarding_key_placeholder">Paste your API key</string>
+    <string name="onboarding_key_optional">%1$s does not need a key — you can leave this empty.</string>
+    <string name="onboarding_next">Next</string>
+    <string name="onboarding_skip">Skip</string>
+    <string name="onboarding_model_title">Pick a model</string>
+    <string name="onboarding_model_body">The list comes from your provider. If it fails, just type the model name.</string>
+    <string name="onboarding_model_loading">Fetching models…</string>
+    <string name="onboarding_model_placeholder">Model name, e.g. deepseek-chat</string>
+    <string name="onboarding_model_fetch">Refresh</string>
+    <string name="onboarding_done_title">You are all set</string>
+    <string name="onboarding_done_body">Send your first message. Everything here can be changed later in Settings.</string>
+    <string name="onboarding_start">Start chatting</string>
+
+    <string name="hist_empty_hint">First time here? Start a new chat.</string>
+    <string name="hist_empty_action">New chat</string>
+
+    <string name="md_download_code">Save to Downloads</string>
+    <string name="md_code_saved">Saved to Downloads</string>
+    <string name="md_code_save_failed">Couldn\'t save the file</string>
+    <string name="branch_position">Branch %1$d/%2$d</string>
+    <string name="context_budget_label">Context %1$s / %2$s</string>
+    <string name="context_budget_hint">Nearly full — compact</string>
+
+    <string name="action_quote">Quote</string>
+    <string name="quote_cancel">Cancel quote</string>
+    <string name="edit_history_label">Edited %1$d times</string>
+    <string name="edit_history_version">Version %1$d</string>
 </resources>

@@ -27,6 +27,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
@@ -53,6 +54,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.simplechat.app.R
 import com.simplechat.app.data.Attachment
+import com.simplechat.app.data.StorageUsage
 import com.simplechat.app.data.AttachmentFiles
 import com.simplechat.app.data.Attachments
 import com.simplechat.app.ui.common.AppIcons
@@ -133,7 +135,13 @@ private fun decodeSampled(bytes: ByteArray, targetPx: Int): ImageBitmap? = runCa
 
 /** 待发送附件。图片是缩略图，文本文件是一条小卡片。 */
 @Composable
-fun PendingAttachment(spec: Attachment, onRemove: () -> Unit, onOpen: () -> Unit) {
+fun PendingAttachment(
+    spec: Attachment,
+    onRemove: () -> Unit,
+    onOpen: () -> Unit,
+    onMoveLeft: (() -> Unit)? = null,
+    onMoveRight: (() -> Unit)? = null,
+) {
     Box {
         AttachmentSurface(inUserBubble = false) {
             when (spec.kind) {
@@ -142,6 +150,38 @@ fun PendingAttachment(spec: Attachment, onRemove: () -> Unit, onOpen: () -> Unit
             }
         }
         RemoveBadge(onRemove, Modifier.align(Alignment.TopEnd))
+        /*
+         * 顺序对多图很重要：模型是按顺序看的，"先看这张再看那张"就是靠这个顺序。
+         * 横滑列表里做拖拽手势会和滚动打架，所以给两个小箭头 —— 慢一点，但不会误触。
+         */
+        Row(
+            modifier = Modifier.align(Alignment.BottomStart),
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+        ) {
+            if (onMoveLeft != null) MoveBadge(AppIcons.ChevronLeft, onMoveLeft)
+            if (onMoveRight != null) MoveBadge(AppIcons.ChevronRight, onMoveRight)
+        }
+    }
+}
+
+/** 附件左下角的小箭头：把这张往前/往后挪一位。 */
+@Composable
+private fun MoveBadge(icon: androidx.compose.ui.graphics.vector.ImageVector, onClick: () -> Unit) {
+    Box(
+        modifier = Modifier
+            .padding(2.dp)
+            .size(18.dp)
+            .clip(CircleShape)
+            .background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.66f))
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = androidx.compose.ui.graphics.Color.White,
+            modifier = Modifier.size(11.dp),
+        )
     }
 }
 
@@ -152,6 +192,8 @@ fun PendingAttachmentsRow(
     onRemove: (Attachment) -> Unit,
     onOpen: (Attachment) -> Unit,
     modifier: Modifier = Modifier,
+    /** 把第 [second] 个附件和第 [first] 个交换位置（用来调顺序）。 */
+    onMove: ((Int, Int) -> Unit)? = null,
 ) {
     if (attachments.isEmpty()) return
     Row(
@@ -161,11 +203,21 @@ fun PendingAttachmentsRow(
             .padding(horizontal = 16.dp, vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        attachments.forEach { spec ->
+        attachments.forEachIndexed { index, spec ->
             PendingAttachment(
                 spec = spec,
                 onRemove = { onRemove(spec) },
                 onOpen = { onOpen(spec) },
+                onMoveLeft = if (onMove != null && index > 0) {
+                    { onMove(index, index - 1) }
+                } else {
+                    null
+                },
+                onMoveRight = if (onMove != null && index < attachments.lastIndex) {
+                    { onMove(index, index + 1) }
+                } else {
+                    null
+                },
             )
         }
     }
@@ -257,8 +309,10 @@ private fun FileChip(spec: Attachment, onClick: () -> Unit) {
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
+            val bytes = remember(spec.data) { spec.data.toByteArray().size }
             Text(
-                text = stringResource(R.string.attach_char_count, spec.data.length),
+                text = stringResource(R.string.attach_char_count, spec.data.length) +
+                    " · " + StorageUsage.formatBytes(bytes.toLong()),
                 style = MaterialTheme.typography.labelSmall,
                 color = colors.placeholder,
                 maxLines = 1,

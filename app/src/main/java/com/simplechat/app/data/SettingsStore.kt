@@ -143,6 +143,9 @@ data class StoredSettings(
     /** 禁止截屏与多任务预览（`FLAG_SECURE`）。 */
     val secureScreen: Boolean = false,
 
+    /** 首次启动引导是否已经走过（或跳过）。只影响引导弹层，不影响任何功能。 */
+    val onboardingDone: Boolean = false,
+
     /*
      * ── AI 行为 ──────────────────────────────────────────────
      * 对应 LineCode 的 BehaviorSettingsPage。这里放的是"怎么想、怎么显示"，
@@ -442,6 +445,7 @@ class SettingsStore(
                 ?: StoredSettings().generationNotification,
             appLock = prefs[Keys.APP_LOCK] ?: StoredSettings().appLock,
             secureScreen = prefs[Keys.SECURE_SCREEN] ?: StoredSettings().secureScreen,
+            onboardingDone = prefs[Keys.ONBOARDING_DONE] ?: StoredSettings().onboardingDone,
             customPrimary = prefs[Keys.CUSTOM_PRIMARY],
             customUserBubble = prefs[Keys.CUSTOM_USER_BUBBLE],
             customPageBackground = prefs[Keys.CUSTOM_PAGE_BG],
@@ -603,6 +607,11 @@ class SettingsStore(
 
     suspend fun setSecureScreen(enabled: Boolean) {
         preferences.edit { it[Keys.SECURE_SCREEN] = enabled }
+    }
+
+    /** 引导只在装完第一次出现，之后不再打扰（设置里也没有入口去重开）。 */
+    suspend fun setOnboardingDone(done: Boolean) {
+        preferences.edit { it[Keys.ONBOARDING_DONE] = done }
     }
 
     /** 行高倍率夹到 [MIN_LINE_HEIGHT]..[MAX_LINE_HEIGHT]：滑块的边界在 UI 上，这里再兜一次。 */
@@ -1089,6 +1098,7 @@ class SettingsStore(
         val GENERATION_NOTIFICATION = booleanPreferencesKey("generation_notification")
         val APP_LOCK = booleanPreferencesKey("app_lock")
         val SECURE_SCREEN = booleanPreferencesKey("secure_screen")
+        val ONBOARDING_DONE = booleanPreferencesKey("onboarding_done")
         val LINE_HEIGHT = floatPreferencesKey("line_height_scale")
         val BODY_MONOSPACE = booleanPreferencesKey("body_monospace")
         val CUSTOM_PRIMARY = intPreferencesKey("custom_primary")

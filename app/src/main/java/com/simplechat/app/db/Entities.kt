@@ -159,6 +159,15 @@ data class MessageEntity(
     @ColumnInfo(name = "tokens_in") val tokensIn: Int? = null,
     @ColumnInfo(name = "tokens_out") val tokensOut: Int? = null,
     /**
+     * 引用回复：被引用消息的正文快照。
+     *
+     * 存**快照**而不是被引用消息的 id：那条消息可能被删、被编辑、被切分支，
+     * 引用块得永远显示"当时引的是什么"。用户消息才有。
+     */
+    @ColumnInfo(name = "quote_text") val quoteText: String? = null,
+    /** 编辑历史：被覆盖掉的旧正文，用 [HISTORY_SEPARATOR] 连接。null = 从没编辑过。 */
+    @ColumnInfo(name = "edit_history") val editHistory: String? = null,
+    /**
      * 内容块时间线（JSON 数组，见 [com.simplechat.app.net.ReplyBlock]）。
      *
      * 仅 Anthropic 兼容通道写入。null = 这条回复没有结构，界面走
@@ -172,6 +181,14 @@ data class MessageEntity(
     companion object {
         /** 根消息的 parentId 哨兵。 */
         const val ROOT_PARENT = ""
+
+        /**
+         * 编辑历史的分隔符。
+         *
+         * 用一串不可能出现在正文里的字符：`\u0000` 会被 SQLite / JSON 折腾，
+         * 这串可见但极不可能是用户自己打的。
+         */
+        const val HISTORY_SEPARATOR = "\n\n\u2063\u2063---\u2063\u2063\n\n"
     }
 }
 

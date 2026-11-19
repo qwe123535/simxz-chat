@@ -67,6 +67,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.simplechat.app.App
+import com.simplechat.app.data.PendingOpen
 import com.simplechat.app.data.StartupTrace
 import com.simplechat.app.R
 import com.simplechat.app.db.ConversationEntity
@@ -143,6 +144,8 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
     val conversations by historyViewModel.conversations.collectAsStateWithLifecycle()
     val searchPage by historyViewModel.searchPage.collectAsStateWithLifecycle()
     val recentSearches by historyViewModel.recentSearches.collectAsStateWithLifecycle()
+    // 通知点进来时，要打开的那个会话（见 PendingOpen）
+    val pendingOpen by PendingOpen.target.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     /*
@@ -178,6 +181,18 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
     LaunchedEffect(Unit) { StartupTrace.mark(startupContext, "ui.root.firstCompose") }
     LaunchedEffect(conversations.isNotEmpty()) {
         if (conversations.isNotEmpty()) StartupTrace.mark(startupContext, "data.history.first")
+    }
+
+    /*
+     * 通知点击 → 直接落到那个会话、滚到刚生成完的那条消息。
+     * 只打开 App 不定位，等于让用户在几十个会话里自己找。
+     */
+    LaunchedEffect(pendingOpen) {
+        val target = PendingOpen.consume() ?: return@LaunchedEffect
+        route = Route.CHAT
+        readingSearchResult = false
+        searchMode = false
+        chatViewModel.openConversation(target.first, target.second)
     }
 
     /** 关抽屉时顺带退出多选，避免下次打开还停在选择态。 */
@@ -354,6 +369,10 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                             generatingConversationId = chatViewModel.generatingConversationId,
                             unseenDone = chatViewModel.unseenDone,
                             failedConversations = chatViewModel.failedConversations,
+                            onNewConversation = {
+                                closeDrawer()
+                                chatViewModel.newConversation()
+                            },
                         )
                     }
                 }

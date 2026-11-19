@@ -841,4 +841,35 @@
     <string name="ui_style_deepseek">DeepSeek 风格</string>
     <string name="settings_show_extras">显示高级功能</string>
     <string name="about_original_project">原项目地址</string>
+
+    <!-- 首次启动引导：填 Key → 选模型 → 发第一条消息 -->
+    <string name="onboarding_key_title">先接上你的模型</string>
+    <string name="onboarding_key_body">填一个 API Key 就能开始。用本地模型（Ollama 等）的话这一步可以直接跳过。</string>
+    <string name="onboarding_key_placeholder">粘贴 API Key</string>
+    <string name="onboarding_key_optional">%1$s 不校验 Key，可以留空。</string>
+    <string name="onboarding_next">下一步</string>
+    <string name="onboarding_skip">跳过</string>
+    <string name="onboarding_model_title">选一个模型</string>
+    <string name="onboarding_model_body">列表是从你的服务商拉的。拉不到也不要紧，直接手填模型名。</string>
+    <string name="onboarding_model_loading">正在拉取模型列表…</string>
+    <string name="onboarding_model_placeholder">模型名，例如 deepseek-chat</string>
+    <string name="onboarding_model_fetch">重新拉取</string>
+    <string name="onboarding_done_title">都准备好了</string>
+    <string name="onboarding_done_body">现在可以发第一条消息。这些设置以后都能在「设置」里改。</string>
+    <string name="onboarding_start">开始使用</string>
+
+    <string name="hist_empty_hint">第一次用？从新建一个对话开始。</string>
+    <string name="hist_empty_action">新建对话</string>
+
+    <string name="md_download_code">保存到下载</string>
+    <string name="md_code_saved">已保存到「下载」</string>
+    <string name="md_code_save_failed">保存失败</string>
+    <string name="branch_position">分支 %1$d/%2$d</string>
+    <string name="context_budget_label">上下文 %1$s / %2$s</string>
+    <string name="context_budget_hint">接近上限，可压缩</string>
+
+    <string name="action_quote">引用</string>
+    <string name="quote_cancel">取消引用</string>
+    <string name="edit_history_label">已编辑 %1$d 次</string>
+    <string name="edit_history_version">第 %1$d 版</string>
 </resources>

@@ -406,6 +406,8 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
         status: MessageStatus = MessageStatus.DONE,
         /** 这条由哪个模型产生；用户消息传 null。 */
         model: String? = null,
+        /** 引用回复：被引用正文的快照。 */
+        quoteText: String? = null,
     ): MessageEntity {
         val id = UUID.randomUUID().toString()
         val entity = newMessageEntity(
@@ -419,6 +421,7 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
             reasoning = reasoning,
             status = status,
             model = model,
+            quoteText = quoteText,
         ).withOffloadedImages()
         messages.upsert(entity)
         messages.activate(id, conversationId, parentId)
@@ -446,6 +449,7 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
         conversationId: String,
         content: String,
         attachments: List<Attachment> = emptyList(),
+        quoteText: String? = null,
     ): UiMessage =
         db.withTransaction {
             val parentId = tailId(conversationId)
@@ -455,6 +459,7 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
                 role = MessageRole.USER,
                 content = content,
                 attachments = attachments,
+                quoteText = quoteText,
             )
 
             val now = System.currentTimeMillis()
@@ -658,11 +663,32 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
         attachments: List<Attachment> = emptyList(),
         timeline: List<ReplyBlock> = emptyList(),
     ) = db.withTransaction {
+        /*
+         * 编辑历史：把**旧正文**追加到 `edit_history` 最前面（新的在前）。
+         *
+         * 存整份正文而不是 diff：聊天消息一般几百字，一份字符串换来的
+         * 是"点开就能看原文"，不用写回溯逻辑。
+         * 上限 20 版，防止有人反复微调把一行撑成几 MB。
+         */
+        val previous = messages.contentOf(id)
+        val oldHistory = messages.editHistoryOf(id)
+        val history = if (previous != null && previous != content) {
+            val list = buildList {
+                add(previous)
+                if (oldHistory != null) {
+                    addAll(oldHistory.split(MessageEntity.HISTORY_SEPARATOR))
+                }
+            }.take(MaxEditHistory)
+            list.joinToString(MessageEntity.HISTORY_SEPARATOR)
+        } else {
+            oldHistory
+        }
         messages.editContent(
             id = id,
             content = content,
             attachments = Attachments.encode(attachments),
             timeline = ReplyBlocks.encode(timeline),
+            editHistory = history,
         )
         // 落盘附件的引用登记：改了附件也要保证删会话时能一起清干净
         val conversationId = messages.exportHeader(id)?.conversationId
@@ -1755,6 +1781,9 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
     }
 
     private companion object {
+        /** 一条消息最多留几版旧内容。 */
+        const val MaxEditHistory = 20
+
         /**
          * 内置预设。刻意只做「一段提示词」，不做结构化角色卡（§9.1.1①）。
          *

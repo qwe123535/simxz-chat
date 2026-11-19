@@ -373,14 +373,28 @@ interface MessageDao {
      *
      * 状态 / 用时统计 / 思考内容都不动：保存改的是文字，不是这次请求的结果。
      */
+    /** 编辑前把旧正文读出来，塞进历史。 */
+    @Query("SELECT content FROM messages WHERE id = :id")
+    suspend fun contentOf(id: String): String?
+
+    @Query("SELECT edit_history FROM messages WHERE id = :id")
+    suspend fun editHistoryOf(id: String): String?
+
     @Query(
         """
         UPDATE messages
-        SET content = :content, attachments = :attachments, timeline = :timeline
+        SET content = :content, attachments = :attachments, timeline = :timeline,
+            edit_history = :editHistory
         WHERE id = :id
         """,
     )
-    suspend fun editContent(id: String, content: String, attachments: String?, timeline: String?)
+    suspend fun editContent(
+        id: String,
+        content: String,
+        attachments: String?,
+        timeline: String?,
+        editHistory: String?,
+    )
 
     /**
      * 把卡在 `STREAMING` 的消息判为中断。

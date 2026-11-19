@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
     // v7：messages 增加 timeline / stopReason（Anthropic 兼容通道的内容块时间线）
     // v8：新增 attachment_refs（落盘图片的引用，删会话时据此清理文件）
     // v9：附件可被多个会话引用（分叉后删除原会话不能丢图）
-    version = 9,
+    version = 10,
     exportSchema = true,
 )
 abstract class AppDatabase : RoomDatabase() {
@@ -153,6 +153,19 @@ abstract class AppDatabase : RoomDatabase() {
             }
         }
 
+        /**
+         * 9 → 10：引用回复 + 编辑历史。
+         *
+         * 两列都可空、都有默认值，老消息读进来就是 null（= 没引用过 / 没编辑过），
+         * 不需要回填。加列是 SQLite 里最便宜的 schema 变更。
+         */
+        private val MIGRATION_9_10 = object : Migration(9, 10) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `quote_text` TEXT")
+                db.execSQL("ALTER TABLE `messages` ADD COLUMN `edit_history` TEXT")
+            }
+        }
+
         fun build(context: Context, name: String = "simplechat.db"): AppDatabase =
             Room.databaseBuilder(
                 context.applicationContext,
@@ -167,6 +180,7 @@ abstract class AppDatabase : RoomDatabase() {
                     MIGRATION_6_7,
                     MIGRATION_7_8,
                     MIGRATION_8_9,
+                    MIGRATION_9_10,
                 )
                 .build()
     }

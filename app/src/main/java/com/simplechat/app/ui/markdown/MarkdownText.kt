@@ -806,6 +806,21 @@ private fun CodeHeader(language: String, code: String, lineCount: Int) {
                 .weight(1f)
                 .padding(start = 6.dp),
         )
+        /*
+         * 下载：长代码光能复制不够 —— 复制之后还得自己找地方粘。
+         * 落到系统「下载」目录（API 29+ 走 MediaStore，不需要存储权限）。
+         */
+        IconCircleButton(
+            icon = AppIcons.Download,
+            contentDescription = stringResource(R.string.md_download_code),
+            onClick = {
+                val saved = saveCodeToDownloads(context, language, code)
+                toast(context, context.getString(if (saved) R.string.md_code_saved else R.string.md_code_save_failed))
+            },
+            size = 28.dp,
+            iconSize = 14.dp,
+            tint = colors.processText,
+        )
         IconCircleButton(
             icon = if (copied) AppIcons.Check else AppIcons.Copy,
             contentDescription = stringResource(if (copied) R.string.md_copied else R.string.md_copy_code),
@@ -861,6 +876,49 @@ private fun splitFence(raw: String): Pair<String, String> {
 }
 
 /** 复制到系统剪贴板。用平台 API —— Compose 的剪贴板封装近年改过两轮签名。 */
+/** 代码存进系统「下载」目录。返回是否成功（失败只 toast，不抛）。 */
+private fun saveCodeToDownloads(context: Context, language: String?, code: String): Boolean = runCatching {
+    val ext = when (language?.lowercase()) {
+        "kotlin" -> "kt"
+        "java" -> "java"
+        "python" -> "py"
+        "javascript", "js" -> "js"
+        "typescript", "ts" -> "ts"
+        "json" -> "json"
+        "xml", "html" -> "html"
+        "sql" -> "sql"
+        "bash", "sh", "shell" -> "sh"
+        "yaml", "yml" -> "yaml"
+        else -> "txt"
+    }
+    val name = "code-" + System.currentTimeMillis() + "." + ext
+    val bytes = code.toByteArray()
+    if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q) {
+        val values = android.content.ContentValues().apply {
+            put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name)
+            put(android.provider.MediaStore.MediaColumns.MIME_TYPE, "text/plain")
+            put(
+                android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                android.os.Environment.DIRECTORY_DOWNLOADS,
+            )
+        }
+        val uri = context.contentResolver
+            .insert(android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values) ?: return false
+        context.contentResolver.openOutputStream(uri)?.use { it.write(bytes) }
+        true
+    } else {
+        // 老系统没权限写公共目录，退到应用自己的外部目录（文件管理器里也能看到）
+        val dir = context.getExternalFilesDir(android.os.Environment.DIRECTORY_DOWNLOADS)
+            ?: context.filesDir
+        java.io.File(dir, name).writeBytes(bytes)
+        true
+    }
+}.getOrDefault(false)
+
+private fun toast(context: Context, text: String) {
+    android.widget.Toast.makeText(context, text, android.widget.Toast.LENGTH_SHORT).show()
+}
+
 private fun copyToClipboard(context: Context, text: String) {
     val manager = context.getSystemService(Context.CLIPBOARD_SERVICE) as? ClipboardManager ?: return
     manager.setPrimaryClip(ClipData.newPlainText("code", text))
