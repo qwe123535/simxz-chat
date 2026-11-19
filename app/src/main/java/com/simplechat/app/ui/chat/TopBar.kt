@@ -22,9 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import com.simplechat.app.R
 import com.simplechat.app.ui.common.AppIcons
+import com.simplechat.app.ui.theme.LocalUiStyle
+import com.simplechat.app.ui.theme.UiStyle
 
 /** 顶栏：`☰` 标题 ｜ 自动朗读 · 新建对话。设置入口在抽屉底部。 */
 @Composable
@@ -37,25 +40,45 @@ fun ChatTopBar(
     readAloudAvailable: Boolean = true,
     onToggleAutoReadAloud: () -> Unit = {},
 ) {
+    val deepSeek = LocalUiStyle.current == UiStyle.DEEPSEEK
     Row(
         modifier = modifier
             .fillMaxWidth()
             .statusBarsPadding()
-            .height(56.dp)
-            .padding(horizontal = 8.dp),
+            // 官方顶栏是 60dp，我们原版 56dp —— 差这 4dp 决定"松"还是"挤"
+            .height(if (deepSeek) 60.dp else 56.dp)
+            .padding(horizontal = if (deepSeek) 4.dp else 8.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         TopBarAction(AppIcons.Menu, stringResource(R.string.topbar_history), onMenu)
-        Text(
-            text = title,
-            style = MaterialTheme.typography.titleMedium,
-            color = MaterialTheme.colorScheme.onBackground,
-            modifier = Modifier
-                .weight(1f)
-                .padding(start = 8.dp),
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        if (deepSeek) {
+            // DeepSeek 的标题**居中**，两侧图标对称压边
+            Box(
+                modifier = Modifier.weight(1f),
+                contentAlignment = Alignment.Center,
+            ) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Medium,
+                    color = MaterialTheme.colorScheme.onBackground,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 4.dp),
+                )
+            }
+        } else {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onBackground,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+        }
         if (readAloudAvailable) {
             val label = stringResource(if (autoReadAloud) R.string.auto_read_aloud_on else R.string.auto_read_aloud_off)
             TopBarAction(
