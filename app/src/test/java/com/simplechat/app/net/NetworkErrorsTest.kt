@@ -3,6 +3,7 @@ package com.simplechat.app.net
 import com.simplechat.app.R
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.net.ssl.SSLHandshakeException
@@ -41,6 +42,12 @@ class NetworkErrorsTest {
     }
 
     @Test
+    fun `连接被拒绝单独成一句`() {
+        // 本地模型服务没启动时最常见的就是这条：不能被笼统说成"连接被中断"
+        assertEquals(R.string.error_connect_refused, networkFailureRes(ConnectException("Connection refused")))
+    }
+
+    @Test
     fun `证书问题`() {
         assertEquals(R.string.error_network_insecure, networkFailureRes(SSLHandshakeException("bad cert")))
     }
@@ -52,6 +59,38 @@ class NetworkErrorsTest {
             R.string.error_network_interrupted,
             networkFailureRes(IOException("stream was reset: INTERNAL_ERROR")),
         )
+    }
+
+    @Test
+    fun `本机与局域网地址的判定`() {
+        assertTrue("127.0.0.1".isPrivateHost())
+        assertTrue("localhost".isPrivateHost())
+        assertTrue("::1".isPrivateHost())
+        assertTrue("[::1]".isPrivateHost())
+        assertTrue("192.168.1.10".isPrivateHost())
+        assertTrue("10.0.0.5".isPrivateHost())
+        assertTrue("172.16.3.4".isPrivateHost())
+        assertTrue("172.31.255.1".isPrivateHost())
+        assertTrue("169.254.10.1".isPrivateHost())
+        assertTrue("MacBook.local".isPrivateHost())
+        assertFalse("172.32.0.1".isPrivateHost())
+        assertFalse("api.deepseek.com".isPrivateHost())
+        assertFalse("8.8.8.8".isPrivateHost())
+        assertFalse("".isPrivateHost())
+        assertFalse("999.1.1.1".isPrivateHost())
+    }
+
+    @Test
+    fun `本地端点才补排查方向`() {
+        // 公网端点：不补 —— "服务没启动"那句话放到公网端点上会误导
+        assertNull(localModelListHintRes(404, "api.deepseek.com"))
+        assertNull(localModelListHintRes(null, "api.deepseek.com"))
+        // 本地端点：404 = 少了 /v1；连不上 = 服务没起（code 为 null 表示连接层失败）
+        assertEquals(R.string.api_hint_missing_v1, localModelListHintRes(404, "127.0.0.1"))
+        assertEquals(R.string.api_hint_local_unreachable, localModelListHintRes(null, "192.168.1.10"))
+        // 其它状态码（401 鉴权失败等）已有自己的说法，不再叠一句
+        assertNull(localModelListHintRes(401, "127.0.0.1"))
+        assertNull(localModelListHintRes(500, "127.0.0.1"))
     }
 
     @Test

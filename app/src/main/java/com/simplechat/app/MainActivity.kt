@@ -2,18 +2,24 @@ package com.simplechat.app
 
 import android.content.Context
 import android.os.Bundle
+import android.view.WindowManager
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.graphics.Color
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.simplechat.app.data.AppLanguage
+import com.simplechat.app.data.AppForeground
+import com.simplechat.app.data.AppLock
 import com.simplechat.app.data.LocaleHelper
+import com.simplechat.app.ui.LockScreen
 import com.simplechat.app.ui.RootScreen
 import com.simplechat.app.ui.theme.AccentColor
 import com.simplechat.app.ui.theme.ApplySystemBarAppearance
+import com.simplechat.app.ui.theme.CustomColors
 import com.simplechat.app.ui.theme.SimpleChatTheme
 import com.simplechat.app.ui.theme.ThemeMode
 
@@ -22,6 +28,26 @@ class MainActivity : ComponentActivity() {
     override fun attachBaseContext(newBase: Context) {
         // composable 的 `stringResource` 走这里的 resources，所以语言也得在这包一层。
         super.attachBaseContext(LocaleHelper.wrap(newBase))
+    }
+
+    /**
+     * 退到后台就上锁。
+     *
+     * 用 `onStop` 而不是 `onPause`：下拉通知栏、系统弹窗都不该触发上锁，
+     * 否则用户切出去看一眼消息回来就得再验一次。
+     * 读的是缓存值（`lastKnown`），这条路径不能等一次 DataStore 读取。
+     */
+    override fun onStart() {
+        super.onStart()
+        // 生成完成的通知靠这个判断要不要发：用户正看着屏幕就不打扰
+        AppForeground.update(true)
+    }
+
+    override fun onStop() {
+        super.onStop()
+        AppForeground.update(false)
+        val store = (application as App).container.settingsStore
+        if (store.lastKnown?.appLock == true) AppLock.lock()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -67,13 +93,33 @@ class MainActivity : ComponentActivity() {
                 else -> current.fontScale / systemFontScale
             }
 
+            // 自定义配色：存的是 ARGB 整数，null 表示"跟随主题"
+            val custom = CustomColors(
+                primary = current?.customPrimary?.let { Color(it) },
+                userBubble = current?.customUserBubble?.let { Color(it) },
+                pageBackground = current?.customPageBackground?.let { Color(it) },
+                card = current?.customCard?.let { Color(it) },
+                text = current?.customText?.let { Color(it) },
+            )
+
             SimpleChatTheme(
                 themeMode = themeMode,
                 accent = accent,
                 fontScale = fontScale,
+                custom = custom,
+                lineHeightScale = current?.lineHeightScale ?: 1f,
+                bodyMonospace = current?.bodyMonospace ?: false,
             ) {
                 ApplySystemBarAppearance()
-                RootScreen()
+                // 禁止截屏：系统级开关，改完立刻生效，不用重建 Activity
+                LaunchedEffect(current?.secureScreen) {
+                    if (current?.secureScreen == true) {
+                        window.addFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    } else {
+                        window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                    }
+                }
+                if (AppLock.locked) LockScreen() else RootScreen()
             }
         }
     }

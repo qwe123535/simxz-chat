@@ -13,6 +13,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -33,7 +34,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Slider
+import androidx.compose.material3.SliderDefaults
 import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.compose.runtime.collectAsState
 import androidx.compose.material3.LinearProgressIndicator
@@ -52,7 +56,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import com.simplechat.app.BuildConfig
 import androidx.compose.ui.focus.FocusRequester
@@ -75,11 +81,20 @@ import com.simplechat.app.ui.common.BubbleShapeOut
 import com.simplechat.app.App
 import com.simplechat.app.R
 import com.simplechat.app.data.ApiKey
+import com.simplechat.app.data.CrashDiagnostics
+import com.simplechat.app.data.ErrorLog
+import com.simplechat.app.data.MemoryEntry
+import com.simplechat.app.data.SlashCommand
+import com.simplechat.app.db.ConversationEntity
+import com.simplechat.app.db.FavoriteMessageRow
+import com.simplechat.app.ui.common.AppPairInputDialog
 import com.simplechat.app.net.UpdateChecker
 import com.simplechat.app.data.AppLanguage
 import com.simplechat.app.data.ImportMode
 import com.simplechat.app.data.Res
+import com.simplechat.app.data.SettingsStore
 import com.simplechat.app.data.StoredSettings
+import com.simplechat.app.data.StorageUsage
 import com.simplechat.app.data.ApiProfile
 import com.simplechat.app.data.userMessage
 import com.simplechat.app.data.copyExportFile
@@ -89,6 +104,7 @@ import com.simplechat.app.net.DeepSeekTts
 import com.simplechat.app.net.ProviderKind
 import com.simplechat.app.ui.common.AppIcons
 import com.simplechat.app.ui.common.AppConfirmDialog
+import com.simplechat.app.ui.common.AppTextInputDialog
 import com.simplechat.app.ui.common.AppMenu
 import com.simplechat.app.ui.common.AppMenuCheck
 import com.simplechat.app.ui.common.AppMenuItem
@@ -98,7 +114,8 @@ import com.simplechat.app.ui.chat.loadSpeechVoices
 import com.simplechat.app.ui.chat.rememberSpeechOutput
 import com.simplechat.app.ui.common.AppSlider
 import com.simplechat.app.ui.common.AppSwitch
-import com.simplechat.app.ui.common.ContainerShape
+import com.simplechat.app.ui.common.AppColorPickerDialog
+import com.simplechat.app.ui.common.CapsuleButton
 import com.simplechat.app.ui.common.IconCircleButton
 import com.simplechat.app.ui.common.PillShape
 import com.simplechat.app.ui.common.screenTransform
@@ -136,18 +153,77 @@ private enum class SettingsPage(val depth: Int) {
     ABOUT(1),
     /** 开源许可与版权清单（关于 → 二级）。 */
     LICENSES(2),
+
+    /** 触感反馈：三个动作各一个开关。 */
+    INTERACTION(1),
+
+    /** 存储占用与清理。 */
+    STORAGE(1),
+
+    /** 自定义配色：五项颜色逐项可改。 */
+    CUSTOM_THEME(1),
+
+    /** 阅读排版：行高与正文等宽。 */
+    READING(1),
+
+    /** AI 行为：语气、思考显示、学习模式、极简模式。 */
+    BEHAVIOR(1),
+
+    /** 输出与预览：代码块换行、思考块展开、链接打开方式。 */
+    OUTPUT(1),
+
+    /** 工具：联网搜索服务商、图像理解模型。 */
+
+    /** 统计：按模型的请求数与 token 用量。 */
+    STATS(1),
+
+    /** 记忆：长期记忆条目（增删改）。 */
+    MEMORY(1),
+
+    /** 错误日志：最近的崩溃与网络错误。 */
+    LOGS(1),
+
+    /** 后台保护：前台服务、WakeLock、电池优化、音频保活。 */
+    KEEPALIVE(1),
+
+    /** 安全：应用锁、禁止截屏、明文 HTTP。 */
+    SECURITY(1),
+
+    /** 快捷指令：输入框打 / 调用的可编辑列表。 */
+    SLASH_COMMANDS(1),
+
+    /** 收藏夹：收藏的消息与会话。 */
+    FAVORITES(1),
 }
 
 private sealed interface SettingsDialog {
     data object Provider : SettingsDialog
     data object BaseUrl : SettingsDialog
     data object Model : SettingsDialog
+    /** 记忆条目编辑（`null` = 新增）。 */
+    data class MemoryEditor(val entry: MemoryEntry?) : SettingsDialog
+    /** 图像理解模型 id（空 = 跟随当前对话模型）。 */
     /** 手动填写模型 id：端点没实现 `/models`、或列表里没有目标模型时的出口。 */
     data object ModelManual : SettingsDialog
     data object ApiKey : SettingsDialog
     data class ApiProfileName(val profile: ApiProfile? = null, val copyCurrent: Boolean = false) : SettingsDialog
     data class DeleteApiProfile(val profile: ApiProfile) : SettingsDialog
     data object DeleteAll : SettingsDialog
+
+    /** 清理存储：只清残留附件与临时缓存，见 [StorageUsage]。 */
+    data object ClearStorage : SettingsDialog
+
+    /** 给某一项自定义配色取色。 */
+    data class PickColor(val slot: SettingsStore.CustomColorSlot) : SettingsDialog
+
+    /** 清空搜索历史（只删关键词，不碰会话）。 */
+    data object ClearSearchHistory : SettingsDialog
+
+    /** 新增 / 编辑一条快捷指令；`original` 为 null 表示新增。 */
+    data class SlashEditor(val original: SlashCommand? = null) : SettingsDialog
+
+    /** 删除一条快捷指令前的确认。 */
+    data class DeleteSlash(val command: SlashCommand) : SettingsDialog
     data object ImportMode : SettingsDialog
     /** 协议通道（自动 / OpenAI 兼容 / Anthropic 兼容）。 */
     data object ApiStyle : SettingsDialog
@@ -199,6 +275,8 @@ private enum class ApiStylePreference(val labelRes: Int) {
 fun SettingsScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 收藏夹里点开一个会话：交给上层切到聊天标签并打开它。 */
+    onOpenConversation: (String) -> Unit = {},
 ) {
     val colors = LocalChatColors.current
     val context = LocalContext.current
@@ -236,6 +314,10 @@ fun SettingsScreen(
         onDispose { pendingArchive?.delete(); pendingImport?.delete() }
     }
     var presets by remember { mutableStateOf<List<Preset>>(emptyList()) }
+    // 存储占用：进页面才测（要扫文件系统，别在启动路径上做）
+    var storageReport by remember { mutableStateOf<StorageUsage.Report?>(null) }
+    var storageClearing by remember { mutableStateOf(false) }
+    var storageMessage by remember { mutableStateOf<String?>(null) }
 
     /*
      * 朗读音色。
@@ -298,6 +380,48 @@ fun SettingsScreen(
         }
     }
 
+    /*
+     * 统计 / 记忆 / 错误日志：三页的数据都**进页才读**。
+     * 统计要扫一遍 messages 表，常驻读取等于每次进设置都全表聚合一次。
+     */
+    var statsRows by remember { mutableStateOf<List<com.simplechat.app.db.ModelUsageRow>?>(null) }
+    var memories by remember { mutableStateOf<List<MemoryEntry>>(emptyList()) }
+    // 快捷指令与收藏：前者随设置变，后者只存 id、内容要现取
+    var slashCommands by remember { mutableStateOf<List<SlashCommand>>(emptyList()) }
+    var favoriteMessageIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var favoriteConversationIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var favoriteMessages by remember { mutableStateOf<List<FavoriteMessageRow>>(emptyList()) }
+    var favoriteConversations by remember { mutableStateOf<List<ConversationEntity>>(emptyList()) }
+    var logText by remember { mutableStateOf("") }
+    var logCrash by remember { mutableStateOf("") }
+
+    LaunchedEffect(page) {
+        when (page) {
+            SettingsPage.STATS -> statsRows = runCatching { repository.modelUsage() }
+                .getOrDefault(emptyList())
+            SettingsPage.LOGS -> {
+                logText = ErrorLog.read(context)
+                logCrash = CrashDiagnostics.file(context)?.readText().orEmpty()
+            }
+            else -> Unit
+        }
+    }
+    LaunchedEffect(Unit) { store.memories.collect { memories = it } }
+    LaunchedEffect(Unit) { store.slashCommands.collect { slashCommands = it } }
+    LaunchedEffect(Unit) { store.favoriteMessages.collect { favoriteMessageIds = it } }
+    LaunchedEffect(Unit) { store.favoriteConversations.collect { favoriteConversationIds = it } }
+    // 收藏只存 id，内容要现取；进了收藏夹页才查，避免设置页一启动就扫库
+    LaunchedEffect(page, favoriteMessageIds) {
+        if (page != SettingsPage.FAVORITES) return@LaunchedEffect
+        favoriteMessages = runCatching { repository.favoriteMessages(favoriteMessageIds.toList()) }
+            .getOrDefault(emptyList())
+    }
+    LaunchedEffect(page, favoriteConversationIds) {
+        if (page != SettingsPage.FAVORITES) return@LaunchedEffect
+        favoriteConversations = runCatching { repository.conversationsByIds(favoriteConversationIds.toList()) }
+            .getOrDefault(emptyList())
+    }
+
     LaunchedEffect(Unit) { store.flow.collect { stored = it } }
     LaunchedEffect(Unit) { repository.observePresets().collect { presets = it } }
 
@@ -308,6 +432,64 @@ fun SettingsScreen(
 
     val provider = runCatching { ProviderKind.valueOf(stored.providerId) }
         .getOrDefault(ProviderKind.DEEPSEEK)
+
+    /**
+     * 拉一次模型列表，并把它落库（设置页「模型」选择器读的就是这份）。
+     *
+     * 手动点「测试连接」和进页面时自动拉**走同一段逻辑** —— 两处各写一遍的话，
+     * "失败怎么提示""拉到的列表要不要落库"迟早会走岔（早先就只报了个条数、
+     * 列表丢掉，于是自定义端点明明"连接成功"，点开「模型」却是一个白框）。
+     */
+    suspend fun refreshModels() {
+        if (testing) return
+        testing = true
+        testResult = null
+        val source = stored
+        try {
+            val result = container.chatApi.fetchModels(
+                baseUrl = source.baseUrl.ifBlank { provider.defaultBaseUrl },
+                apiKey = source.apiKey,
+            )
+            result.onSuccess { ids ->
+                store.setModelIds(ids, source.activeApiProfileId, source.baseUrl)
+            }
+            // 拉取期间用户可能已经切走了服务商 / 改了地址：那条结果不再属于当前页
+            if (stored.activeApiProfileId == source.activeApiProfileId &&
+                stored.baseUrl == source.baseUrl
+            ) {
+                testResult = result.fold(
+                    onSuccess = { Res.get(R.string.api_test_ok, it.size) },
+                    onFailure = { Res.get(R.string.api_test_failed, it.userMessage()) },
+                )
+            }
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            profileError = error.userMessage()
+        } finally {
+            testing = false
+        }
+    }
+
+    /*
+     * 进「API 配置」页时，模型列表还是空的就自动拉一次。
+     *
+     * 本地服务（Ollama / LM Studio）装好往往只有一个默认模型，用户不知道要手打名字 ——
+     * 自动拉一次，选择器里就有人可选了。
+     *
+     * 三种情况不拉：
+     * - 列表已有内容：不打扰，换服务端模型可以手动点「测试连接」；
+     * - 地址为空：还没填，拉必然失败，失败提示纯属噪音；
+     * - 需要 Key 但没填：先去填 Key，这里只会拿到 401。
+     * 失败**不弹窗**，就留在「测试连接」下面那一行小字里。
+     */
+    LaunchedEffect(page, stored.activeApiProfileId, stored.baseUrl, stored.modelIds.isEmpty()) {
+        if (page != SettingsPage.API) return@LaunchedEffect
+        if (stored.modelIds.isNotEmpty()) return@LaunchedEffect
+        if (stored.baseUrl.isBlank() && provider.defaultBaseUrl.isBlank()) return@LaunchedEffect
+        if (!stored.hasKey && !provider.apiKeyOptional) return@LaunchedEffect
+        refreshModels()
+    }
 
     val themeMode = runCatching { ThemeMode.valueOf(stored.themeModeId) }
         .getOrDefault(ThemeMode.SYSTEM)
@@ -461,6 +643,34 @@ fun SettingsScreen(
     fun startArchiveExport() = prepareExport("zip", { archiveLauncher.launch(it) }) { file ->
         stageArchive(file) { repository.exportArchive(it) { p -> archiveProgress.value = p } }
     }
+    suspend fun measureStorage() {
+        storageReport = runCatching { StorageUsage.measure(context, container.database) }
+            .getOrNull()
+    }
+
+    suspend fun clearStorage() {
+        if (storageClearing) return
+        storageClearing = true
+        try {
+            val freed = StorageUsage.clear(context, container.database)
+            storageMessage = Res.get(
+                R.string.storage_clear_done,
+                StorageUsage.formatBytes(freed),
+            )
+            measureStorage()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            storageMessage = error.userMessage()
+        } finally {
+            storageClearing = false
+        }
+    }
+
+    LaunchedEffect(page) {
+        if (page == SettingsPage.STORAGE) measureStorage()
+    }
+
     // ── 页面 ──────────────────────────────────────────────
 
     Column(
@@ -479,7 +689,21 @@ fun SettingsScreen(
                 SettingsPage.VOICE -> stringResource(R.string.tts_voice)
                 SettingsPage.ABOUT -> stringResource(R.string.settings_about)
                 SettingsPage.LICENSES -> stringResource(R.string.about_licenses)
+                SettingsPage.INTERACTION -> stringResource(R.string.settings_interaction)
+                SettingsPage.STORAGE -> stringResource(R.string.settings_storage)
+                SettingsPage.CUSTOM_THEME -> stringResource(R.string.settings_custom_theme)
+                SettingsPage.READING -> stringResource(R.string.settings_reading)
+                SettingsPage.BEHAVIOR -> stringResource(R.string.settings_behavior)
+                SettingsPage.OUTPUT -> stringResource(R.string.settings_output)
+                SettingsPage.STATS -> stringResource(R.string.settings_stats)
+                SettingsPage.MEMORY -> stringResource(R.string.settings_memory)
+                SettingsPage.LOGS -> stringResource(R.string.settings_logs)
+                SettingsPage.KEEPALIVE -> stringResource(R.string.settings_keepalive)
+                SettingsPage.SECURITY -> stringResource(R.string.settings_security)
+                SettingsPage.SLASH_COMMANDS -> stringResource(R.string.settings_slash_commands)
+                SettingsPage.FAVORITES -> stringResource(R.string.settings_favorites)
             },
+            showBack = page != SettingsPage.ROOT,
             onBack = {
                 if (archiveProgress.value == null && importProgress.value == null && !importReading) {
                     if (page == SettingsPage.ROOT) onBack() else previousPage()
@@ -548,6 +772,7 @@ fun SettingsScreen(
                                 importLauncher.launch(arrayOf("*/*"))
                             },
                             onDeleteAll = { dialog = SettingsDialog.DeleteAll },
+                            onClearSearchHistory = { dialog = SettingsDialog.ClearSearchHistory },
                         )
 
                         SettingsPage.API -> ApiPage(
@@ -561,30 +786,109 @@ fun SettingsScreen(
                             onWebSearch = { enabled ->
                                 scope.launch { store.setWebSearch(enabled) }
                             },
-                            onTest = {
-                                if (testing) return@ApiPage
-                                testing = true
-                                testResult = null
-                                val source = stored
+                            onTest = { scope.launch { refreshModels() } },
+                        )
+
+                        SettingsPage.INTERACTION -> InteractionPage(
+                            stored = stored,
+                            onToggleSend = { scope.launch { store.setHapticSend(it) } },
+                            onToggleLongPress = { scope.launch { store.setHapticLongPress(it) } },
+                            onToggleDelete = { scope.launch { store.setHapticSwipeDelete(it) } },
+                            onToggleSendOnEnter = { scope.launch { store.setSendOnEnter(it) } },
+                        )
+
+                        SettingsPage.STORAGE -> StoragePage(
+                            report = storageReport,
+                            clearing = storageClearing,
+                            message = storageMessage,
+                            onClear = { dialog = SettingsDialog.ClearStorage },
+                        )
+
+                        SettingsPage.CUSTOM_THEME -> CustomThemePage(
+                            stored = stored,
+                            onPick = { dialog = SettingsDialog.PickColor(it) },
+                            onReset = { slot -> scope.launch { store.setCustomColor(slot, null) } },
+                            onResetAll = { scope.launch { store.resetCustomColors() } },
+                        )
+
+                        SettingsPage.READING -> ReadingPage(
+                            stored = stored,
+                            onLineHeightChange = { scope.launch { store.setLineHeightScale(it) } },
+                            onMonospaceChange = { scope.launch { store.setBodyMonospace(it) } },
+                        )
+
+                        SettingsPage.BEHAVIOR -> BehaviorPage(
+                            stored = stored,
+                            onTone = { scope.launch { store.setTone(it) } },
+                            onThinkingScroll = { scope.launch { store.setThinkingScroll(it) } },
+                            onStepThinking = { scope.launch { store.setStepThinking(it) } },
+                            onPreserveReasoning = { scope.launch { store.setPreserveReasoning(it) } },
+                            onLearningMode = { scope.launch { store.setLearningMode(it) } },
+                            onSoftCompaction = { scope.launch { store.setSoftCompaction(it) } },
+                            onMinimalMode = { scope.launch { store.setMinimalMode(it) } },
+                        )
+
+                        SettingsPage.OUTPUT -> OutputPage(
+                            stored = stored,
+                            onCodeWrap = { scope.launch { store.setCodeWrap(it) } },
+                            onProcessExpand = { scope.launch { store.setProcessAutoExpand(it) } },
+                            onAutoCollapse = { scope.launch { store.setAutoCollapseThinking(it) } },
+                        )
+
+                        SettingsPage.STATS -> StatsPage(rows = statsRows)
+
+                        SettingsPage.MEMORY -> MemoryPage(
+                            entries = memories,
+                            onAdd = { dialog = SettingsDialog.MemoryEditor(null) },
+                            onEdit = { dialog = SettingsDialog.MemoryEditor(it) },
+                            onDelete = { scope.launch { store.deleteMemory(it) } },
+                        )
+
+                        SettingsPage.LOGS -> LogsPage(
+                            text = logText,
+                            crash = logCrash,
+                            onRefresh = {
                                 scope.launch {
-                                    try {
-                                    val result = container.chatApi.fetchModels(
-                                        baseUrl = source.baseUrl.ifBlank { provider.defaultBaseUrl },
-                                        apiKey = source.apiKey,
-                                    )
-                                    // 拉到的列表**必须落库**：它就是「模型」选择器的数据源，
-                                    // 早先只报了个条数、列表丢掉，于是自定义端点明明"连接成功"，
-                                    // 点开「模型」却是一个只有标题的白框。
-                                    result.onSuccess { ids -> store.setModelIds(ids, source.activeApiProfileId, source.baseUrl) }
-                                    if (stored.activeApiProfileId == source.activeApiProfileId && stored.baseUrl == source.baseUrl) testResult = result.fold(
-                                        onSuccess = { Res.get(R.string.api_test_ok, it.size) },
-                                        onFailure = { Res.get(R.string.api_test_failed, it.userMessage()) },
-                                    )
-                                    } catch (error: CancellationException) { throw error }
-                                    catch (error: Exception) { profileError = error.userMessage() }
-                                    finally { testing = false }
+                                    logText = ErrorLog.read(context)
+                                    logCrash = CrashDiagnostics.file(context)?.readText().orEmpty()
                                 }
                             },
+                            onClear = {
+                                scope.launch {
+                                    ErrorLog.clear(context)
+                                    logText = ErrorLog.read(context)
+                                }
+                            },
+                        )
+
+                        SettingsPage.KEEPALIVE -> KeepAlivePage(
+                            stored = stored,
+                            onForeground = { scope.launch { store.setGenerationNotification(it) } },
+                            onWakeLock = { scope.launch { store.setKeepAliveWakeLock(it) } },
+                            onBattery = { scope.launch { store.setKeepAliveIgnoreBattery(it) } },
+                            onAudio = { scope.launch { store.setKeepAliveFakeAudio(it) } },
+                        )
+
+                        SettingsPage.SECURITY -> SecurityPage(
+                            stored = stored,
+                            onAppLock = { scope.launch { store.setAppLock(it) } },
+                            onSecureScreen = { scope.launch { store.setSecureScreen(it) } },
+                            onAllowHttp = { scope.launch { store.setAllowAnyHttp(it) } },
+                        )
+
+                        SettingsPage.SLASH_COMMANDS -> SlashCommandsPage(
+                            commands = slashCommands,
+                            onAdd = { dialog = SettingsDialog.SlashEditor() },
+                            onEdit = { dialog = SettingsDialog.SlashEditor(original = it) },
+                            onDelete = { dialog = SettingsDialog.DeleteSlash(it) },
+                        )
+
+                        SettingsPage.FAVORITES -> FavoritesPage(
+                            messages = favoriteMessages,
+                            conversations = favoriteConversations,
+                            onOpenConversation = onOpenConversation,
+                            onUnfavoriteMessage = { scope.launch { store.toggleFavoriteMessage(it) } },
+                            onUnfavoriteConversation = { scope.launch { store.toggleFavoriteConversation(it) } },
                         )
 
                         SettingsPage.API_PROFILES -> ApiProfilesPage(
@@ -785,6 +1089,72 @@ fun SettingsScreen(
             },
         )
 
+        is SettingsDialog.MemoryEditor -> AppTextInputDialog(
+            title = stringResource(
+                if (activeDialog.entry == null) R.string.memory_add else R.string.memory_edit,
+            ),
+            initial = activeDialog.entry?.text.orEmpty(),
+            placeholder = stringResource(R.string.memory_placeholder),
+            onDismiss = { dialog = null },
+            onConfirm = { value ->
+                val editing = activeDialog.entry
+                dialog = null
+                scope.launch {
+                    if (editing == null) store.addMemory(value) else store.updateMemory(editing.id, value)
+                }
+            },
+        )
+
+        is SettingsDialog.SlashEditor -> AppPairInputDialog(
+            title = stringResource(
+                if (activeDialog.original == null) R.string.slash_add else R.string.slash_name,
+            ),
+            firstLabel = stringResource(R.string.slash_name),
+            firstInitial = activeDialog.original?.name.orEmpty(),
+            secondLabel = stringResource(R.string.slash_text),
+            secondInitial = activeDialog.original?.text.orEmpty(),
+            onDismiss = { dialog = null },
+            onConfirm = { name, text ->
+                val editing = activeDialog.original
+                dialog = null
+                if (name.isBlank() || text.isBlank()) return@AppPairInputDialog
+                scope.launch {
+                    // 改名 = 删旧的 + 存新的：存储层按名字去重，同名会覆盖
+                    if (editing != null && editing.name != name.trim().trimStart('/')) {
+                        store.deleteSlashCommand(editing.name)
+                    }
+                    store.addSlashCommand(name, text)
+                }
+            },
+        )
+
+        is SettingsDialog.DeleteSlash -> AppConfirmDialog(
+            title = stringResource(R.string.slash_delete_title),
+            message = stringResource(R.string.slash_delete_body, activeDialog.command.name),
+            confirmText = stringResource(R.string.action_delete),
+            destructive = true,
+            onDismiss = { dialog = null },
+            onConfirm = {
+                val name = activeDialog.command.name
+                dialog = null
+                scope.launch { store.deleteSlashCommand(name) }
+            },
+        )
+
+        SettingsDialog.ClearSearchHistory -> AppConfirmDialog(
+            title = stringResource(R.string.settings_clear_search_history),
+            message = stringResource(R.string.settings_clear_search_history_summary),
+            confirmText = stringResource(R.string.settings_clear_search_history),
+            onDismiss = { dialog = null },
+            onConfirm = {
+                dialog = null
+                scope.launch {
+                    store.clearRecentSearches()
+                    dataMessage = Res.get(R.string.settings_clear_search_history_done)
+                }
+            },
+        )
+
         SettingsDialog.DeleteAll -> AppConfirmDialog(
             title = stringResource(R.string.settings_delete_all_title),
             message = stringResource(R.string.settings_delete_all_body),
@@ -802,6 +1172,31 @@ fun SettingsScreen(
                 }
             },
         )
+
+        SettingsDialog.ClearStorage -> AppConfirmDialog(
+            title = stringResource(R.string.storage_clear_title),
+            message = stringResource(R.string.storage_clear_body),
+            confirmText = stringResource(R.string.storage_clear_confirm),
+            destructive = true,
+            onDismiss = { dialog = null },
+            onConfirm = {
+                dialog = null
+                scope.launch { clearStorage() }
+            },
+        )
+
+        is SettingsDialog.PickColor -> {
+            val slot = activeDialog.slot
+            AppColorPickerDialog(
+                title = stringResource(slot.labelRes),
+                initial = stored.customColor(slot)?.let { Color(it) } ?: defaultCustomColor(slot),
+                onDismiss = { dialog = null },
+                onConfirm = { picked ->
+                    dialog = null
+                    scope.launch { store.setCustomColor(slot, picked.toArgb()) }
+                },
+            )
+        }
 
         SettingsDialog.ImportMode -> ChoiceDialog(
             title = stringResource(R.string.import_mode_title),
@@ -904,30 +1299,38 @@ private fun RootPage(
     var accentMenuOpen by remember { mutableStateOf(false) }
     var languageMenuOpen by remember { mutableStateOf(false) }
 
-    SettingsSectionLabel(stringResource(R.string.settings_group_account))
+    /*
+     * 一级页是**两列方格**，不再是竖排列表。
+     *
+     * 十二个入口排成一列时每条只有一行字，翻两屏才看得全；改成方格后一屏扫完，
+     * 手指落点也大得多。每行固定两格，缺的那个用空位补上，左右永远对齐。
+     */
+    val provider = runCatching { ProviderKind.valueOf(stored.providerId) }
+        .getOrDefault(ProviderKind.DEEPSEEK)
 
-    SettingsCard {
-        SettingsNavRow(
-            icon = AppIcons.Database,
-            label = stringResource(R.string.settings_data),
-            value = stringResource(R.string.settings_data_summary),
-            onClick = { onOpen(SettingsPage.DATA) },
-        )
-        RowDivider()
-        SettingsNavRow(
-            icon = AppIcons.Server,
-            label = stringResource(R.string.settings_api),
-            value = null,
-            onClick = { onOpen(SettingsPage.API) },
-        )
-    }
+    SettingsSectionLabel(stringResource(R.string.settings_group_account))
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.Database,
+                label = stringResource(R.string.settings_data),
+                value = stringResource(R.string.settings_data_summary),
+                onClick = { onOpen(SettingsPage.DATA) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.Server,
+                label = stringResource(R.string.settings_api),
+                value = provider.displayName,
+                onClick = { onOpen(SettingsPage.API) },
+            ),
+        ),
+    )
 
     SettingsSectionLabel(stringResource(R.string.settings_group_personal))
-
-    SettingsCard {
-        // 外观：三个互斥选项，直接弹菜单
-        Box {
-            SettingsNavRow(
+    SettingsTileRow(
+        listOf(
+            // 外观：三个互斥选项，点格子直接弹菜单
+            SettingsTileSpec(
                 icon = AppIcons.Contrast,
                 label = stringResource(R.string.settings_appearance),
                 value = when (themeMode) {
@@ -936,33 +1339,30 @@ private fun RootPage(
                     ThemeMode.DARK -> stringResource(R.string.value_dark)
                 },
                 onClick = { themeMenuOpen = true },
-            )
-            AppMenu(
-                expanded = themeMenuOpen,
-                onDismissRequest = { themeMenuOpen = false },
-            ) {
-                ThemeMode.entries.forEach { mode ->
-                    AppMenuItem(
-                        label = when (mode) {
-                            ThemeMode.SYSTEM -> stringResource(R.string.value_follow_system)
-                            ThemeMode.LIGHT -> stringResource(R.string.value_light)
-                            ThemeMode.DARK -> stringResource(R.string.value_dark)
-                        },
-                        selected = mode == themeMode,
-                        onClick = {
-                            themeMenuOpen = false
-                            onThemeChange(mode)
-                        },
-                    )
-                }
-            }
-        }
-
-        RowDivider()
-
-        // 语言：三个互斥选项，弹菜单。换语言 = 改缓存 + 整页重建（见 MainActivity）
-        Box {
-            SettingsNavRow(
+                menu = {
+                    AppMenu(
+                        expanded = themeMenuOpen,
+                        onDismissRequest = { themeMenuOpen = false },
+                    ) {
+                        ThemeMode.entries.forEach { mode ->
+                            AppMenuItem(
+                                label = when (mode) {
+                                    ThemeMode.SYSTEM -> stringResource(R.string.value_follow_system)
+                                    ThemeMode.LIGHT -> stringResource(R.string.value_light)
+                                    ThemeMode.DARK -> stringResource(R.string.value_dark)
+                                },
+                                selected = mode == themeMode,
+                                onClick = {
+                                    themeMenuOpen = false
+                                    onThemeChange(mode)
+                                },
+                            )
+                        }
+                    }
+                },
+            ),
+            // 语言：换语言 = 改缓存 + 整页重建（见 MainActivity）
+            SettingsTileSpec(
                 icon = AppIcons.Globe,
                 label = stringResource(R.string.settings_language),
                 value = when (language) {
@@ -971,115 +1371,719 @@ private fun RootPage(
                     AppLanguage.EN -> stringResource(R.string.lang_english)
                 },
                 onClick = { languageMenuOpen = true },
-            )
-            AppMenu(
-                expanded = languageMenuOpen,
-                onDismissRequest = { languageMenuOpen = false },
-            ) {
-                listOf(
-                    AppLanguage.SYSTEM to stringResource(R.string.value_follow_system),
-                    AppLanguage.ZH to stringResource(R.string.lang_chinese),
-                    AppLanguage.EN to stringResource(R.string.lang_english),
-                ).forEach { (option, label) ->
-                    AppMenuItem(
-                        label = label,
-                        selected = option == language,
-                        onClick = {
-                            languageMenuOpen = false
-                            onLanguageChange(option)
-                        },
-                    )
-                }
-            }
-        }
-
-        RowDivider()
-
-        // 主题色：点开弹一排色块
-        Box {
-            SettingsNavRow(
+                menu = {
+                    AppMenu(
+                        expanded = languageMenuOpen,
+                        onDismissRequest = { languageMenuOpen = false },
+                    ) {
+                        listOf(
+                            AppLanguage.SYSTEM to stringResource(R.string.value_follow_system),
+                            AppLanguage.ZH to stringResource(R.string.lang_chinese),
+                            AppLanguage.EN to stringResource(R.string.lang_english),
+                        ).forEach { (option, label) ->
+                            AppMenuItem(
+                                label = label,
+                                selected = option == language,
+                                onClick = {
+                                    languageMenuOpen = false
+                                    onLanguageChange(option)
+                                },
+                            )
+                        }
+                    }
+                },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            // 主题色：点开弹一排色块
+            SettingsTileSpec(
                 icon = AppIcons.Palette,
                 label = stringResource(R.string.settings_accent),
                 value = accentColor.label,
                 onClick = { accentMenuOpen = true },
-            )
-            AppMenu(
-                expanded = accentMenuOpen,
-                onDismissRequest = { accentMenuOpen = false },
-                // 七个色块横排，比默认菜单宽
-                width = AccentMenuWidth,
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 8.dp, vertical = 6.dp),
-                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
-                    AccentColor.entries.forEach { color ->
-                        AccentSwatch(
-                            color = color,
-                            selected = color == accentColor,
-                            onClick = {
-                                accentMenuOpen = false
-                                onAccentChange(color)
-                            },
-                        )
+                menu = {
+                    AppMenu(
+                        expanded = accentMenuOpen,
+                        onDismissRequest = { accentMenuOpen = false },
+                        // 七个色块横排，比默认菜单宽
+                        width = AccentMenuWidth,
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 8.dp, vertical = 6.dp),
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            AccentColor.entries.forEach { color ->
+                                AccentSwatch(
+                                    color = color,
+                                    selected = color == accentColor,
+                                    onClick = {
+                                        accentMenuOpen = false
+                                        onAccentChange(color)
+                                    },
+                                )
+                            }
+                        }
                     }
-                }
-            }
-        }
-
-        RowDivider()
-
-        SettingsNavRow(
-            icon = AppIcons.Prompt,
-            label = stringResource(R.string.settings_presets),
-            value = if (presetCount == 0) stringResource(R.string.preset_count_empty) else stringResource(R.string.preset_count, presetCount),
-            onClick = { onOpen(SettingsPage.PRESETS) },
-        )
-
-        RowDivider()
-
-        SettingsNavRow(
-            icon = AppIcons.FontSize,
-            label = stringResource(R.string.settings_font_size),
-            value = stringResource(
-                fontSizeSteps
-                    .minByOrNull { kotlin.math.abs(it.first - stored.fontScale) }
-                    ?.second ?: R.string.font_step_standard,
+                },
             ),
-            onClick = { onOpen(SettingsPage.FONT) },
-        )
+            SettingsTileSpec(
+                icon = AppIcons.FontSize,
+                label = stringResource(R.string.settings_font_size),
+                value = stringResource(
+                    fontSizeSteps
+                        .minByOrNull { kotlin.math.abs(it.first - stored.fontScale) }
+                        ?.second ?: R.string.font_step_standard,
+                ),
+                onClick = { onOpen(SettingsPage.FONT) },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            // 自定义配色：逐项覆盖主题色（见 CustomThemePage）
+            SettingsTileSpec(
+                icon = AppIcons.Circle,
+                label = stringResource(R.string.settings_custom_theme),
+                value = customColorCount(stored).let { count ->
+                    if (count == 0) {
+                        stringResource(R.string.settings_custom_follow)
+                    } else {
+                        stringResource(R.string.settings_custom_count, count)
+                    }
+                },
+                onClick = { onOpen(SettingsPage.CUSTOM_THEME) },
+            ),
+            // 阅读排版：行高与字形，跟字号分开（见 ReadingPage）
+            SettingsTileSpec(
+                icon = AppIcons.Feather,
+                label = stringResource(R.string.settings_reading),
+                value = "${(stored.lineHeightScale * 100).toInt()}%",
+                onClick = { onOpen(SettingsPage.READING) },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.Prompt,
+                label = stringResource(R.string.settings_presets),
+                value = if (presetCount == 0) {
+                    stringResource(R.string.preset_count_empty)
+                } else {
+                    stringResource(R.string.preset_count, presetCount)
+                },
+                onClick = { onOpen(SettingsPage.PRESETS) },
+            ),
+            // 朗读音色：系统 TTS 引擎提供，进二级页挑选（见 VoicePage）
+            SettingsTileSpec(
+                icon = AppIcons.Volume,
+                label = stringResource(R.string.tts_voice),
+                value = stored.ttsVoiceLabel.ifBlank { stringResource(R.string.tts_voice_default) },
+                onClick = { onOpen(SettingsPage.VOICE) },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.Sliders,
+                label = stringResource(R.string.settings_interaction),
+                value = when {
+                    stored.hapticSend && stored.hapticLongPress && stored.hapticSwipeDelete ->
+                        stringResource(R.string.value_on)
+                    !stored.hapticSend && !stored.hapticLongPress && !stored.hapticSwipeDelete ->
+                        stringResource(R.string.value_off)
+                    else -> stringResource(R.string.value_custom)
+                },
+                onClick = { onOpen(SettingsPage.INTERACTION) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.Database,
+                label = stringResource(R.string.settings_storage),
+                value = stringResource(R.string.settings_storage_summary),
+                onClick = { onOpen(SettingsPage.STORAGE) },
+            ),
+        ),
+    )
+    SettingsSectionLabel(stringResource(R.string.settings_group_features))
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.Brain,
+                label = stringResource(R.string.settings_behavior),
+                value = if (stored.toneId == "CODING") {
+                    stringResource(R.string.behavior_tone_coding)
+                } else {
+                    stringResource(R.string.behavior_tone_chat)
+                },
+                onClick = { onOpen(SettingsPage.BEHAVIOR) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.Monitor,
+                label = stringResource(R.string.settings_output),
+                value = if (stored.codeWrap) {
+                    stringResource(R.string.value_on)
+                } else {
+                    stringResource(R.string.value_off)
+                },
+                onClick = { onOpen(SettingsPage.OUTPUT) },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.ListChecks,
+                label = stringResource(R.string.settings_stats),
+                value = null,
+                onClick = { onOpen(SettingsPage.STATS) },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.Sparkles,
+                label = stringResource(R.string.settings_memory),
+                value = null,
+                onClick = { onOpen(SettingsPage.MEMORY) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.FileText,
+                label = stringResource(R.string.settings_logs),
+                value = null,
+                onClick = { onOpen(SettingsPage.LOGS) },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.Zap,
+                label = stringResource(R.string.settings_slash_commands),
+                value = stringResource(R.string.settings_slash_commands_summary),
+                onClick = { onOpen(SettingsPage.SLASH_COMMANDS) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.Star,
+                label = stringResource(R.string.settings_favorites),
+                value = stringResource(R.string.settings_favorites_summary),
+                onClick = { onOpen(SettingsPage.FAVORITES) },
+            ),
+        ),
+    )
+    SettingsTileRow(
+        listOf(
+            SettingsTileSpec(
+                icon = AppIcons.Refresh,
+                label = stringResource(R.string.settings_keepalive),
+                value = if (stored.generationNotification) {
+                    stringResource(R.string.value_on)
+                } else {
+                    stringResource(R.string.value_off)
+                },
+                onClick = { onOpen(SettingsPage.KEEPALIVE) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.EyeOff,
+                label = stringResource(R.string.settings_security),
+                value = if (stored.appLock) {
+                    stringResource(R.string.value_on)
+                } else {
+                    stringResource(R.string.value_off)
+                },
+                onClick = { onOpen(SettingsPage.SECURITY) },
+            ),
+        ),
+    )
 
-        RowDivider()
+    SettingsTileRow(
+        listOf(
+            // 自动折叠：方格本身就是开关，点一下切一次
+            SettingsTileSpec(
+                icon = AppIcons.Collapse,
+                label = stringResource(R.string.settings_auto_collapse),
+                value = if (stored.autoCollapseThinking) {
+                    stringResource(R.string.value_on)
+                } else {
+                    stringResource(R.string.value_off)
+                },
+                onClick = { onToggleAutoCollapse(!stored.autoCollapseThinking) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.Info,
+                label = stringResource(R.string.settings_about_title),
+                value = null,
+                onClick = { onOpen(SettingsPage.ABOUT) },
+            ),
+        ),
+    )
+}
 
+/**
+ * 触感反馈：三个动作各一个开关。
+ *
+ * 为什么不给一个总开关：见 `SettingsStore.setHapticSend` 的说明 ——
+ * 有人只讨厌某一处的震动，合成一个开关只会逼人全关。
+ */
+@Composable
+private fun InteractionPage(
+    stored: StoredSettings,
+    onToggleSend: (Boolean) -> Unit,
+    onToggleLongPress: (Boolean) -> Unit,
+    onToggleDelete: (Boolean) -> Unit,
+    onToggleSendOnEnter: (Boolean) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    SettingsSectionLabel(stringResource(R.string.settings_haptic_group))
+    SettingsCard {
         SettingsSwitchRow(
-            icon = AppIcons.Collapse,
-            label = stringResource(R.string.settings_auto_collapse),
-            checked = stored.autoCollapseThinking,
-            onCheckedChange = onToggleAutoCollapse,
+            label = stringResource(R.string.haptic_send),
+            subtitle = stringResource(R.string.haptic_send_hint),
+            checked = stored.hapticSend,
+            onCheckedChange = onToggleSend,
         )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.haptic_long_press),
+            subtitle = stringResource(R.string.haptic_long_press_hint),
+            checked = stored.hapticLongPress,
+            onCheckedChange = onToggleLongPress,
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.haptic_delete),
+            subtitle = stringResource(R.string.haptic_delete_hint),
+            checked = stored.hapticSwipeDelete,
+            onCheckedChange = onToggleDelete,
+        )
+    }
+    Text(
+        text = stringResource(R.string.settings_haptic_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, end = 4.dp, bottom = 8.dp),
+    )
 
-        RowDivider()
+    // 输入：跟触感放同一页 —— 都是"手指怎么操作"的事，不是外观
+    SettingsSectionLabel(stringResource(R.string.settings_input_group))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.haptic_send_enter),
+            subtitle = stringResource(R.string.haptic_send_enter_hint),
+            checked = stored.sendOnEnter,
+            onCheckedChange = onToggleSendOnEnter,
+        )
+    }
+    Spacer(Modifier.height(24.dp))
+}
 
-        // 朗读音色：系统 TTS 引擎提供，进二级页挑选（见 VoicePage）
-        SettingsNavRow(
-            icon = AppIcons.Volume,
-            label = stringResource(R.string.tts_voice),
-            value = stored.ttsVoiceLabel.ifBlank { stringResource(R.string.tts_voice_default) },
-            onClick = { onOpen(SettingsPage.VOICE) },
+/**
+ * 自定义配色：五项颜色逐项覆盖主题。
+ *
+ * 每项都是"留空 = 跟随主题"，所以只有**改过**的项才显示色值与「重置」——
+ * 五项全列出来、每项都带一个色块，反而看不出哪几项动过。
+ */
+@Composable
+private fun CustomThemePage(
+    stored: StoredSettings,
+    onPick: (SettingsStore.CustomColorSlot) -> Unit,
+    onReset: (SettingsStore.CustomColorSlot) -> Unit,
+    onResetAll: () -> Unit,
+) {
+    val colors = LocalChatColors.current
+    val count = customColorCount(stored)
+
+    SettingsSectionLabel(stringResource(R.string.settings_custom_theme))
+    SettingsCard {
+        SettingsStore.CustomColorSlot.entries.forEachIndexed { index, slot ->
+            if (index > 0) RowDivider(inset = 16.dp)
+            CustomColorRow(
+                label = stringResource(slot.labelRes),
+                value = stored.customColor(slot),
+                fallback = defaultCustomColor(slot),
+                onPick = { onPick(slot) },
+                onReset = { onReset(slot) },
+            )
+        }
+    }
+    Text(
+        text = stringResource(R.string.settings_custom_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, end = 4.dp),
+    )
+
+    if (count > 0) {
+        Spacer(Modifier.height(12.dp))
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(MenuShape)
+                .clickable(onClick = onResetAll)
+                .padding(vertical = 14.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Text(
+                text = stringResource(R.string.settings_custom_reset_all),
+                style = MaterialTheme.typography.titleSmall,
+                color = colors.danger,
+            )
+        }
+    }
+    Spacer(Modifier.height(24.dp))
+}
+
+@Composable
+private fun CustomColorRow(
+    label: String,
+    value: Int?,
+    fallback: Color,
+    onPick: () -> Unit,
+    onReset: () -> Unit,
+) {
+    val colors = LocalChatColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onPick)
+            .padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(
+            modifier = Modifier
+                .size(24.dp)
+                .clip(CircleShape)
+                .background(value?.let { Color(it) } ?: fallback)
+                .border(1.dp, colors.outline, CircleShape),
+        )
+        Spacer(Modifier.width(12.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Text(
+                text = value?.let { hexOf(it) } ?: stringResource(R.string.settings_custom_follow),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.placeholder,
+            )
+        }
+        if (value != null) {
+            Text(
+                text = stringResource(R.string.settings_custom_reset),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.placeholder,
+                modifier = Modifier
+                    .clip(PillShape)
+                    .clickable(onClick = onReset)
+                    .padding(horizontal = 10.dp, vertical = 6.dp),
+            )
+        }
+    }
+}
+
+/**
+ * 阅读排版：正文行高与等宽。
+ *
+ * 与字号分成两页：字号是"看得清"，行高是"读得松"，两件事的取舍完全不同。
+ */
+@Composable
+private fun ReadingPage(
+    stored: StoredSettings,
+    onLineHeightChange: (Float) -> Unit,
+    onMonospaceChange: (Boolean) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    SettingsSectionLabel(stringResource(R.string.settings_reading))
+    SettingsCard {
+        Column(modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(R.string.settings_reading_line_height),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = "${(stored.lineHeightScale * 100).toInt()}%",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.placeholder,
+                )
+            }
+            Slider(
+                value = stored.lineHeightScale,
+                onValueChange = onLineHeightChange,
+                valueRange = SettingsStore.MIN_LINE_HEIGHT..SettingsStore.MAX_LINE_HEIGHT,
+                colors = SliderDefaults.colors(
+                    thumbColor = MaterialTheme.colorScheme.primary,
+                    activeTrackColor = MaterialTheme.colorScheme.primary,
+                ),
+            )
+        }
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.settings_reading_monospace),
+            subtitle = stringResource(R.string.settings_reading_monospace_hint),
+            checked = stored.bodyMonospace,
+            onCheckedChange = onMonospaceChange,
+        )
+    }
+    SettingsSectionLabel(stringResource(R.string.settings_reading_preview))
+    SettingsCard {
+        Text(
+            text = stringResource(R.string.settings_reading_preview_text),
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.padding(16.dp),
+        )
+    }
+    Spacer(Modifier.height(24.dp))
+}
+
+/** 已改过的配色项数（一级页方格上显示）。 */
+private fun customColorCount(stored: StoredSettings): Int =
+    SettingsStore.CustomColorSlot.entries.count { stored.customColor(it) != null }
+
+private fun StoredSettings.customColor(slot: SettingsStore.CustomColorSlot): Int? = when (slot) {
+    SettingsStore.CustomColorSlot.PRIMARY -> customPrimary
+    SettingsStore.CustomColorSlot.USER_BUBBLE -> customUserBubble
+    SettingsStore.CustomColorSlot.PAGE_BACKGROUND -> customPageBackground
+    SettingsStore.CustomColorSlot.CARD -> customCard
+    SettingsStore.CustomColorSlot.TEXT -> customText
+}
+
+/** 未自定义时该项跟随主题的实际颜色（取色弹窗的初始值）。 */
+@Composable
+private fun defaultCustomColor(slot: SettingsStore.CustomColorSlot): Color {
+    val colors = LocalChatColors.current
+    return when (slot) {
+        SettingsStore.CustomColorSlot.PRIMARY -> MaterialTheme.colorScheme.primary
+        SettingsStore.CustomColorSlot.USER_BUBBLE -> colors.userBubble
+        SettingsStore.CustomColorSlot.PAGE_BACKGROUND -> colors.pageBackground
+        SettingsStore.CustomColorSlot.CARD -> colors.card
+        SettingsStore.CustomColorSlot.TEXT -> MaterialTheme.colorScheme.onSurface
+    }
+}
+
+private fun hexOf(argb: Int): String =
+    "#" + (argb and 0xFFFFFF).toString(16).uppercase().padStart(6, '0')
+
+/**
+ * 存储占用与清理。
+ *
+ * [report] 为 null = 还在扫（或扫描失败）。这一页**不在启动路径上**：
+ * 只有真的进到这一页才会去遍历附件目录与缓存目录。
+ */
+@Composable
+private fun StoragePage(
+    report: StorageUsage.Report?,
+    clearing: Boolean,
+    message: String?,
+    onClear: () -> Unit,
+) {
+    val colors = LocalChatColors.current
+    SettingsSectionLabel(stringResource(R.string.settings_storage_group))
+    SettingsCard {
+        StorageSizeRow(
+            label = stringResource(R.string.storage_db),
+            bytes = report?.databaseBytes,
+        )
+        RowDivider(inset = 16.dp)
+        StorageSizeRow(
+            label = stringResource(R.string.storage_attachments),
+            bytes = report?.attachmentBytes,
+        )
+        RowDivider(inset = 16.dp)
+        StorageSizeRow(
+            label = stringResource(R.string.storage_orphans),
+            bytes = report?.orphanBytes,
+            detail = report
+                ?.takeIf { it.orphanCount > 0 }
+                ?.let { stringResource(R.string.storage_orphan_count, it.orphanCount) },
+        )
+        RowDivider(inset = 16.dp)
+        StorageSizeRow(
+            label = stringResource(R.string.storage_cache),
+            bytes = report?.cacheBytes,
         )
     }
 
-    SettingsSectionLabel(stringResource(R.string.settings_about))
-
+    SettingsSectionLabel(stringResource(R.string.settings_storage_clean_group))
     SettingsCard {
-        SettingsNavRow(
-            icon = AppIcons.Info,
-            label = stringResource(R.string.settings_about_title),
-            value = null,
-            onClick = { onOpen(SettingsPage.ABOUT) },
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = report?.let { StorageUsage.formatBytes(it.cleanableBytes) } ?: "—",
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                )
+                Text(
+                    text = stringResource(R.string.storage_clean_hint),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.placeholder,
+                )
+            }
+            CapsuleButton(
+                text = if (clearing) {
+                    stringResource(R.string.storage_clearing)
+                } else {
+                    stringResource(R.string.storage_clear)
+                },
+                onClick = onClear,
+                enabled = !clearing && report != null && report.cleanableBytes > 0,
+            )
+        }
+    }
+    if (message != null) {
+        Text(
+            text = message,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.primary,
+            modifier = Modifier.padding(start = 4.dp, top = 10.dp, end = 4.dp, bottom = 24.dp),
         )
+    }
+}
+
+/** 一行「名字 —— 大小」。扫描未完成时右边是「—」，不假装是 0。 */
+@Composable
+private fun StorageSizeRow(label: String, bytes: Long?, detail: String? = null) {
+    val colors = LocalChatColors.current
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (detail != null) {
+                Text(
+                    text = detail,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.placeholder,
+                )
+            }
+        }
+        Text(
+            text = bytes?.let { StorageUsage.formatBytes(it) } ?: "—",
+            style = MaterialTheme.typography.titleSmall,
+            color = colors.placeholder,
+        )
+    }
+}
+
+/**
+ * 一级页方格的一项。
+ *
+ * [menu] 与格子挂在同一个 `Box` 里：`AppMenu` 跟着锚点走，锚点就是这一格。
+ */
+private class SettingsTileSpec(
+    val icon: ImageVector?,
+    val label: String,
+    val value: String?,
+    val onClick: () -> Unit,
+    val menu: (@Composable () -> Unit)? = null,
+)
+
+/** 方格间距。 */
+private val TileGap = 12.dp
+
+/** 两列方格的一行；只有一格时右侧留空，左右始终对齐。 */
+@Composable
+private fun SettingsTileRow(tiles: List<SettingsTileSpec>) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = TileGap),
+        horizontalArrangement = Arrangement.spacedBy(TileGap),
+    ) {
+        tiles.forEach { tile ->
+            Box(modifier = Modifier.weight(1f)) {
+                SettingsTile(
+                    icon = tile.icon,
+                    label = tile.label,
+                    value = tile.value,
+                    onClick = tile.onClick,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .aspectRatio(1f),
+                )
+                tile.menu?.invoke()
+            }
+        }
+        repeat((2 - tiles.size).coerceAtLeast(0)) { Spacer(Modifier.weight(1f)) }
+    }
+}
+
+/** 单个方格：左上角图标，左下角标题与当前值。 */
+@Composable
+private fun SettingsTile(
+    icon: ImageVector?,
+    label: String,
+    value: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalChatColors.current
+    Column(
+        modifier = modifier
+            .clip(MenuShape)
+            .background(colors.card)
+            .clickable(onClick = onClick)
+            .padding(14.dp),
+        verticalArrangement = Arrangement.SpaceBetween,
+    ) {
+        if (icon != null) {
+            Box(
+                modifier = Modifier
+                    .size(34.dp)
+                    .clip(CircleShape)
+                    .background(colors.fieldBackground),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
+        }
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            if (!value.isNullOrBlank()) {
+                Spacer(Modifier.height(2.dp))
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.placeholder,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
+        }
     }
 }
 
@@ -1241,6 +2245,7 @@ private fun DataPage(
     onExportCrash: () -> Unit,
     onImport: () -> Unit,
     onDeleteAll: () -> Unit,
+    onClearSearchHistory: () -> Unit,
 ) {
     SettingsSectionLabel(stringResource(R.string.settings_group_backup))
 
@@ -1344,6 +2349,18 @@ private fun DataPage(
         )
     }
 
+    // 搜索历史：属于"数据"，但删了不影响会话 —— 单独一格，别混进"清空数据"里
+    SettingsSectionLabel(stringResource(R.string.settings_group_other))
+
+    SettingsCard {
+        SettingsActionRow(
+            label = stringResource(R.string.settings_clear_search_history),
+            hint = stringResource(R.string.settings_clear_search_history_summary),
+            onClick = onClearSearchHistory,
+            enabled = !reading && progress == null && exportProgress == null,
+        )
+    }
+
     SettingsSectionLabel(stringResource(R.string.settings_group_reset))
 
     SettingsCard {
@@ -1426,9 +2443,22 @@ private fun ApiPage(
         SettingsNavRow(
             icon = null,
             label = "API Key",
-            value = if (stored.hasKey) maskKey(stored.apiKey) else stringResource(R.string.api_key_unset),
+            value = when {
+                stored.hasKey -> maskKey(stored.apiKey)
+                // 本地服务商通常不校验鉴权：显示「无需」而不是「未设置」，免得用户以为缺东西
+                provider.apiKeyOptional -> stringResource(R.string.api_key_optional)
+                else -> stringResource(R.string.api_key_unset)
+            },
             onClick = { onPick(SettingsDialog.ApiKey) },
         )
+        if (provider == ProviderKind.LOCAL) {
+            Text(
+                text = stringResource(R.string.api_local_hint),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.placeholder,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 10.dp, bottom = 4.dp),
+            )
+        }
         RowDivider(inset = 16.dp)
         SettingsActionRow(
             label = if (testing) stringResource(R.string.api_testing) else stringResource(R.string.api_test),
@@ -2167,7 +3197,7 @@ private fun LicenseDetailDialog(entry: LicenseEntry, onDismiss: () -> Unit) {
 // ══════════════════════════════════════════════════════════
 
 @Composable
-fun SettingsTopBar(title: String, onBack: () -> Unit) {
+fun SettingsTopBar(title: String, onBack: () -> Unit, showBack: Boolean = true) {
     val colors = LocalChatColors.current
     Box(
         modifier = Modifier
@@ -2175,22 +3205,29 @@ fun SettingsTopBar(title: String, onBack: () -> Unit) {
             .statusBarsPadding()
             .height(56.dp),
     ) {
-        Box(
-            modifier = Modifier
-                .align(Alignment.CenterStart)
-                .padding(start = 16.dp)
-                .size(36.dp)
-                .clip(CircleShape)
-                .background(colors.fieldBackground)
-                .clickable(onClick = onBack),
-            contentAlignment = Alignment.Center,
-        ) {
-            Icon(
-                imageVector = AppIcons.ChevronLeft,
-                contentDescription = stringResource(R.string.action_back),
-                tint = MaterialTheme.colorScheme.onSurface,
-                modifier = Modifier.size(18.dp),
-            )
+        /*
+         * 一级页是**标签**，不是被推进来的一层：那里没有"上一页"，返回箭头
+         * 只会让人以为点了会退出设置，实际却是跳回对话 —— 一个箭头两个含义。
+         * 所以根页不放箭头，回对话走底部标签栏；二级页照旧。
+         */
+        if (showBack) {
+            Box(
+                modifier = Modifier
+                    .align(Alignment.CenterStart)
+                    .padding(start = 16.dp)
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .background(colors.fieldBackground)
+                    .clickable(onClick = onBack),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = AppIcons.ChevronLeft,
+                    contentDescription = stringResource(R.string.action_back),
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(18.dp),
+                )
+            }
         }
 
         Text(
@@ -2396,6 +3433,8 @@ private fun SettingsSwitchRow(
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     icon: ImageVector? = null,
+    /** 第二行小字：说明这个开关到底什么时候会震。 */
+    subtitle: String? = null,
 ) {
     Row(
         modifier = Modifier
@@ -2413,12 +3452,20 @@ private fun SettingsSwitchRow(
                 modifier = Modifier.size(21.dp),
             )
         }
-        Text(
-            text = label,
-            style = MaterialTheme.typography.titleSmall,
-            color = MaterialTheme.colorScheme.onSurface,
-            modifier = Modifier.weight(1f),
-        )
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.titleSmall,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            if (subtitle != null) {
+                Text(
+                    text = subtitle,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = LocalChatColors.current.placeholder,
+                )
+            }
+        }
         AppSwitch(checked = checked, onCheckedChange = onCheckedChange)
     }
 }
@@ -2734,3 +3781,715 @@ private fun maskKey(key: String): String {
 
 
 
+
+/* ── AI 行为 ─────────────────────────────────────────────────────────── */
+
+/**
+ * AI 行为：语气、思考怎么显示、以及几个会改变回答风格的模式。
+ *
+ * 与 API 页的分工：那边管"发给谁、发多少"（端点、Key、温度、最大 tokens），
+ * 这边管"怎么想、怎么呈现"，换服务商不用重设。
+ */
+@Composable
+private fun BehaviorPage(
+    stored: StoredSettings,
+    onTone: (String) -> Unit,
+    onThinkingScroll: (Boolean) -> Unit,
+    onStepThinking: (Boolean) -> Unit,
+    onPreserveReasoning: (Boolean) -> Unit,
+    onLearningMode: (Boolean) -> Unit,
+    onSoftCompaction: (Boolean) -> Unit,
+    onMinimalMode: (Boolean) -> Unit,
+) {
+    val colors = LocalChatColors.current
+
+    SettingsSectionLabel(stringResource(R.string.behavior_group_tone))
+    SettingsCard {
+        SettingsChoiceRow(
+            label = stringResource(R.string.behavior_tone),
+            value = if (stored.toneId == "CODING") {
+                stringResource(R.string.behavior_tone_coding)
+            } else {
+                stringResource(R.string.behavior_tone_chat)
+            },
+            selectedId = stored.toneId,
+            options = listOf(
+                "CHAT" to stringResource(R.string.behavior_tone_chat),
+                "CODING" to stringResource(R.string.behavior_tone_coding),
+            ),
+            onSelect = onTone,
+        )
+    }
+    Text(
+        text = stringResource(R.string.behavior_tone_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, end = 4.dp, bottom = 8.dp),
+    )
+
+    SettingsSectionLabel(stringResource(R.string.behavior_group_thinking))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.behavior_thinking_scroll),
+            subtitle = stringResource(R.string.behavior_thinking_scroll_hint),
+            checked = stored.thinkingScroll,
+            onCheckedChange = onThinkingScroll,
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.behavior_step_thinking),
+            subtitle = stringResource(R.string.behavior_step_thinking_hint),
+            checked = stored.stepThinking,
+            onCheckedChange = onStepThinking,
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.behavior_preserve_reasoning),
+            subtitle = stringResource(R.string.behavior_preserve_reasoning_hint),
+            checked = stored.preserveReasoning,
+            onCheckedChange = onPreserveReasoning,
+        )
+    }
+
+    SettingsSectionLabel(stringResource(R.string.behavior_group_mode))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.behavior_learning),
+            subtitle = stringResource(R.string.behavior_learning_hint),
+            checked = stored.learningMode,
+            onCheckedChange = onLearningMode,
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.behavior_soft_compaction),
+            subtitle = stringResource(R.string.behavior_soft_compaction_hint),
+            checked = stored.softCompaction,
+            onCheckedChange = onSoftCompaction,
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.behavior_minimal),
+            subtitle = stringResource(R.string.behavior_minimal_hint),
+            checked = stored.minimalMode,
+            onCheckedChange = onMinimalMode,
+        )
+    }
+    Spacer(Modifier.height(24.dp))
+}
+
+/* ── 输出与预览 ──────────────────────────────────────────────────────── */
+
+@Composable
+private fun OutputPage(
+    stored: StoredSettings,
+    onCodeWrap: (Boolean) -> Unit,
+    onProcessExpand: (Boolean) -> Unit,
+    onAutoCollapse: (Boolean) -> Unit,
+) {
+    val colors = LocalChatColors.current
+
+    SettingsSectionLabel(stringResource(R.string.output_group_code))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.output_code_wrap),
+            subtitle = stringResource(R.string.output_code_wrap_hint),
+            checked = stored.codeWrap,
+            onCheckedChange = onCodeWrap,
+        )
+    }
+
+    SettingsSectionLabel(stringResource(R.string.output_group_process))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.output_process_expand),
+            subtitle = stringResource(R.string.output_process_expand_hint),
+            checked = stored.processAutoExpand,
+            onCheckedChange = onProcessExpand,
+        )
+        RowDivider(inset = 16.dp)
+        // 思考折叠是反的：存的是「自动折叠」，页面上问的是「默认展开」
+        SettingsSwitchRow(
+            label = stringResource(R.string.output_thinking_collapse),
+            subtitle = stringResource(R.string.output_thinking_collapse_hint),
+            checked = stored.autoCollapseThinking,
+            onCheckedChange = onAutoCollapse,
+        )
+    }
+
+    /*
+     * 这里原本还有一格「链接打开方式（内置 / 系统浏览器）」—— LineCode 有内置 WebView，
+     * Simple-Chat 没有（这是刻意的：见 SourceSheet 的说明）。搬一个选项过来却点不出
+     * 第二种行为，比没有这个选项更糟，所以整格撤掉。
+     */
+    Spacer(Modifier.height(24.dp))
+}
+
+/* ── 工具 ────────────────────────────────────────────────────────────── */
+
+@Composable
+private fun StatsPage(rows: List<com.simplechat.app.db.ModelUsageRow>?) {
+    val colors = LocalChatColors.current
+
+    if (rows == null) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = stringResource(R.string.stats_loading),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.placeholder,
+            )
+        }
+        return
+    }
+    if (rows.isEmpty()) {
+        Box(Modifier.fillMaxWidth().padding(vertical = 40.dp), contentAlignment = Alignment.Center) {
+            Text(
+                text = stringResource(R.string.stats_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.placeholder,
+            )
+        }
+        return
+    }
+
+    val totalRequests = rows.sumOf { it.requests }
+    val totalIn = rows.sumOf { it.inputTokens }
+    val totalOut = rows.sumOf { it.outputTokens }
+
+    SettingsSectionLabel(stringResource(R.string.stats_group_summary))
+    SettingsCard {
+        SettingsStatRow(stringResource(R.string.stats_requests), totalRequests.toString())
+        RowDivider(inset = 16.dp)
+        SettingsStatRow(stringResource(R.string.stats_input), formatTokenCount(totalIn))
+        RowDivider(inset = 16.dp)
+        SettingsStatRow(stringResource(R.string.stats_output), formatTokenCount(totalOut))
+        RowDivider(inset = 16.dp)
+        SettingsStatRow(
+            label = stringResource(R.string.stats_total),
+            value = formatTokenCount(totalIn + totalOut),
+        )
+    }
+
+    SettingsSectionLabel(stringResource(R.string.stats_group_models))
+    SettingsCard {
+        rows.forEachIndexed { index, row ->
+            if (index > 0) RowDivider(inset = 16.dp)
+            Column(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 12.dp)) {
+                Text(
+                    text = row.model,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    text = stringResource(
+                        R.string.stats_model_line,
+                        row.requests,
+                        formatTokenCount(row.inputTokens),
+                        formatTokenCount(row.outputTokens),
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.placeholder,
+                )
+            }
+        }
+    }
+    Text(
+        text = stringResource(R.string.stats_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, end = 4.dp, bottom = 8.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+}
+
+/* ── 记忆 ────────────────────────────────────────────────────────────── */
+
+@Composable
+private fun MemoryPage(
+    entries: List<MemoryEntry>,
+    onAdd: () -> Unit,
+    onEdit: (MemoryEntry) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val colors = LocalChatColors.current
+
+    SettingsSectionLabel(stringResource(R.string.memory_group))
+    SettingsCard {
+        if (entries.isEmpty()) {
+            Text(
+                text = stringResource(R.string.memory_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.placeholder,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
+            )
+        } else {
+            entries.forEachIndexed { index, entry ->
+                if (index > 0) RowDivider(inset = 16.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEdit(entry) }
+                        .padding(horizontal = 16.dp, vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = entry.text,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 2,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Spacer(Modifier.width(8.dp))
+                    IconButton(onClick = { onDelete(entry.id) }, modifier = Modifier.size(32.dp)) {
+                        Icon(
+                            imageVector = AppIcons.Trash,
+                            contentDescription = stringResource(R.string.memory_delete_title),
+                            tint = colors.placeholder,
+                            modifier = Modifier.size(18.dp),
+                        )
+                    }
+                }
+            }
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        horizontalArrangement = Arrangement.End,
+    ) {
+        CapsuleButton(text = stringResource(R.string.memory_add), onClick = onAdd)
+    }
+    Text(
+        text = stringResource(R.string.memory_hint),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 12.dp, end = 4.dp, bottom = 8.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+}
+
+/* ── 错误日志 ────────────────────────────────────────────────────────── */
+
+@Composable
+private fun LogsPage(
+    text: String,
+    crash: String,
+    onRefresh: () -> Unit,
+    onClear: () -> Unit,
+) {
+    val colors = LocalChatColors.current
+    val hasContent = text.isNotBlank() || crash.isNotBlank()
+
+    SettingsSectionLabel(stringResource(R.string.logs_group))
+    SettingsCard {
+        if (!hasContent) {
+            Text(
+                text = stringResource(R.string.logs_empty),
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.placeholder,
+                modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
+            )
+        } else {
+            Text(
+                text = listOf(text, crash).filter { it.isNotBlank() }.joinToString("\n"),
+                style = MaterialTheme.typography.bodySmall.copy(fontFamily = androidx.compose.ui.text.font.FontFamily.Monospace),
+                color = colors.processText,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .heightIn(max = 420.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+            )
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
+    ) {
+        CapsuleButton(text = stringResource(R.string.logs_refresh), onClick = onRefresh)
+        CapsuleButton(text = stringResource(R.string.logs_clear), onClick = onClear, enabled = hasContent)
+    }
+    Text(
+        text = stringResource(R.string.logs_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 12.dp, end = 4.dp, bottom = 8.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+}
+
+/* ── 后台保护 ────────────────────────────────────────────────────────── */
+
+@Composable
+private fun KeepAlivePage(
+    stored: StoredSettings,
+    onForeground: (Boolean) -> Unit,
+    onWakeLock: (Boolean) -> Unit,
+    onBattery: (Boolean) -> Unit,
+    onAudio: (Boolean) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    val context = LocalContext.current
+
+    SettingsSectionLabel(stringResource(R.string.keepalive_group_service))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.keepalive_foreground),
+            subtitle = stringResource(R.string.keepalive_foreground_hint),
+            checked = stored.generationNotification,
+            onCheckedChange = onForeground,
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.keepalive_wakelock),
+            subtitle = stringResource(R.string.keepalive_wakelock_hint),
+            checked = stored.keepAliveWakeLock,
+            onCheckedChange = onWakeLock,
+        )
+    }
+
+    SettingsSectionLabel(stringResource(R.string.keepalive_group_system))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.keepalive_battery),
+            subtitle = stringResource(R.string.keepalive_battery_hint),
+            checked = stored.keepAliveIgnoreBattery,
+            onCheckedChange = { enabled ->
+                onBattery(enabled)
+                // 开关只是"提醒我去设置过"的记录；真正要用户点一下系统页
+                if (enabled) runCatching {
+                    context.startActivity(
+                        android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)
+                            .addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK),
+                    )
+                }
+            },
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.keepalive_audio),
+            subtitle = stringResource(R.string.keepalive_audio_hint),
+            checked = stored.keepAliveFakeAudio,
+            onCheckedChange = onAudio,
+        )
+    }
+    Text(
+        text = stringResource(R.string.keepalive_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, end = 4.dp, bottom = 8.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+}
+
+/* ── 安全 ────────────────────────────────────────────────────────────── */
+
+@Composable
+private fun SecurityPage(
+    stored: StoredSettings,
+    onAppLock: (Boolean) -> Unit,
+    onSecureScreen: (Boolean) -> Unit,
+    onAllowHttp: (Boolean) -> Unit,
+) {
+    val colors = LocalChatColors.current
+
+    SettingsSectionLabel(stringResource(R.string.security_group_lock))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.security_app_lock),
+            subtitle = stringResource(R.string.security_app_lock_hint),
+            checked = stored.appLock,
+            onCheckedChange = onAppLock,
+        )
+        RowDivider(inset = 16.dp)
+        SettingsSwitchRow(
+            label = stringResource(R.string.security_secure_screen),
+            subtitle = stringResource(R.string.security_secure_screen_hint),
+            checked = stored.secureScreen,
+            onCheckedChange = onSecureScreen,
+        )
+    }
+
+    SettingsSectionLabel(stringResource(R.string.security_group_network))
+    SettingsCard {
+        SettingsSwitchRow(
+            label = stringResource(R.string.security_allow_http),
+            subtitle = stringResource(R.string.security_allow_http_hint),
+            checked = stored.allowAnyHttp,
+            onCheckedChange = onAllowHttp,
+        )
+    }
+    Text(
+        text = stringResource(R.string.security_note),
+        style = MaterialTheme.typography.bodySmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 4.dp, top = 10.dp, end = 4.dp, bottom = 8.dp),
+    )
+    Spacer(Modifier.height(24.dp))
+}
+
+/* ── 共用小部件 ──────────────────────────────────────────────────────── */
+
+/** 一行「标签 + 当前值 + 箭头」，点开是菜单。用于语气、浏览器、搜索服务商这类单选。 */
+@Composable
+private fun SettingsChoiceRow(
+    label: String,
+    value: String,
+    selectedId: String,
+    options: List<Pair<String, String>>,
+    onSelect: (String) -> Unit,
+) {
+    var open by remember { mutableStateOf(false) }
+    val colors = LocalChatColors.current
+
+    Box {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { open = true }
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.onSurface,
+                modifier = Modifier.weight(1f),
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.bodyMedium,
+                color = colors.placeholder,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            Spacer(Modifier.width(4.dp))
+            Icon(
+                imageVector = AppIcons.ChevronDown,
+                contentDescription = null,
+                tint = colors.placeholder,
+                modifier = Modifier.size(16.dp),
+            )
+        }
+        AppMenu(expanded = open, onDismissRequest = { open = false }) {
+            options.forEach { (id, text) ->
+                AppMenuItem(
+                    label = text,
+                    selected = id == selectedId,
+                    onClick = {
+                        open = false
+                        onSelect(id)
+                    },
+                )
+            }
+        }
+    }
+}
+
+/** 统计页的一行：左边名字，右边数字。 */
+@Composable
+private fun SettingsStatRow(label: String, value: String) {
+    val colors = LocalChatColors.current
+    Row(
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 14.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.bodyLarge,
+            color = MaterialTheme.colorScheme.onSurface,
+            modifier = Modifier.weight(1f),
+        )
+        Text(
+            text = value,
+            style = MaterialTheme.typography.bodyLarge,
+            color = colors.placeholder,
+        )
+    }
+}
+
+/** 千位分隔。手写而不用 `String.format("%,d")`：后者跟系统区域走，有些地区用空格分隔。 */
+private fun formatTokenCount(value: Long): String {
+    val text = value.toString()
+    if (text.length <= 3) return text
+    val builder = StringBuilder(text.length + text.length / 3)
+    var count = 0
+    for (index in text.length - 1 downTo 0) {
+        if (count > 0 && count % 3 == 0) builder.append(',')
+        builder.append(text[index])
+        count++
+    }
+    return builder.reverse().toString()
+}
+
+
+/**
+ * 快捷指令页。
+ *
+ * 只做"列表 + 增删改"，不做排序：条数一般不超过十条，拖拽排序的收益
+ * 抵不上它带来的手势冲突（这一页在竖向滚动容器里）。
+ */
+@Composable
+private fun SlashCommandsPage(
+    commands: List<SlashCommand>,
+    onAdd: () -> Unit,
+    onEdit: (SlashCommand) -> Unit,
+    onDelete: (SlashCommand) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        SettingsSectionLabel(stringResource(R.string.slash_group))
+        SettingsCard {
+            if (commands.isEmpty()) {
+                Text(
+                    text = stringResource(R.string.slash_empty),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.placeholder,
+                    modifier = Modifier.padding(16.dp),
+                )
+            } else {
+                commands.forEachIndexed { index, command ->
+                    if (index > 0) RowDivider(inset = 16.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onEdit(command) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = "/" + command.name,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurface,
+                            )
+                            Spacer(Modifier.height(2.dp))
+                            Text(
+                                text = command.text,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = colors.placeholder,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        IconCircleButton(
+                            icon = AppIcons.Trash,
+                            contentDescription = stringResource(R.string.slash_delete_title),
+                            onClick = { onDelete(command) },
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(16.dp))
+        CapsuleButton(
+            text = stringResource(R.string.slash_add),
+            onClick = onAdd,
+            leadingIcon = AppIcons.PlusCircle,
+        )
+        Spacer(Modifier.height(12.dp))
+        Text(
+            text = stringResource(R.string.slash_hint),
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.placeholder,
+            modifier = Modifier.padding(horizontal = 4.dp),
+        )
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
+/**
+ * 收藏夹。
+ *
+ * 两段：消息在前（更常用），会话在后。点会话直接切到聊天标签打开它 ——
+ * 收藏夹的意义就是"快速回到那段对话"，只显示不能跳等于没有。
+ */
+@Composable
+private fun FavoritesPage(
+    messages: List<FavoriteMessageRow>,
+    conversations: List<ConversationEntity>,
+    onOpenConversation: (String) -> Unit,
+    onUnfavoriteMessage: (String) -> Unit,
+    onUnfavoriteConversation: (String) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        if (messages.isEmpty() && conversations.isEmpty()) {
+            Text(
+                text = stringResource(R.string.favorites_empty),
+                style = MaterialTheme.typography.bodySmall,
+                color = colors.placeholder,
+                modifier = Modifier.padding(horizontal = 4.dp, vertical = 24.dp),
+            )
+            return@Column
+        }
+
+        if (messages.isNotEmpty()) {
+            SettingsSectionLabel(stringResource(R.string.favorites_group_messages))
+            SettingsCard {
+                messages.forEachIndexed { index, row ->
+                    if (index > 0) RowDivider(inset = 16.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenConversation(row.conversationId) }
+                            .padding(horizontal = 16.dp, vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = row.content.lineSequence().firstOrNull().orEmpty().take(80),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 2,
+                                overflow = TextOverflow.Ellipsis,
+                            )
+                        }
+                        Spacer(Modifier.width(12.dp))
+                        IconCircleButton(
+                            icon = AppIcons.Star,
+                            contentDescription = stringResource(R.string.favorite_remove),
+                            onClick = { onUnfavoriteMessage(row.id) },
+                        )
+                    }
+                }
+            }
+        }
+
+        if (conversations.isNotEmpty()) {
+            SettingsSectionLabel(stringResource(R.string.favorites_group_conversations))
+            SettingsCard {
+                conversations.forEachIndexed { index, conversation ->
+                    if (index > 0) RowDivider(inset = 16.dp)
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onOpenConversation(conversation.id) }
+                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = conversation.title,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurface,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Spacer(Modifier.width(12.dp))
+                        IconCircleButton(
+                            icon = AppIcons.Star,
+                            contentDescription = stringResource(R.string.favorite_remove),
+                            onClick = { onUnfavoriteConversation(conversation.id) },
+                        )
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(24.dp))
+    }
+}

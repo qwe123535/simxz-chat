@@ -815,6 +815,7 @@ fun ConversationSettingsPanelContent(
     /** 有会话可导出时为非空；未落库的新对话传 null。 */
     onExportMarkdown: (() -> Unit)? = null,
     onExportJson: (() -> Unit)? = null,
+    onExportText: (() -> Unit)? = null,
     exportHint: String? = null,
 ) {
     val colors = LocalChatColors.current
@@ -1022,6 +1023,36 @@ fun ConversationSettingsPanelContent(
             onValueChange = { onSettingsChange(settings.copy(topP = it)) },
         )
 
+        /*
+         * 最大输出 tokens。
+         *
+         * **0 = 不传这个字段**，由服务端用自己的默认上限 —— 界面上就写"不限制"。
+         * 这和温度那种"0 是一个有意义的取值"不同，所以文案必须说清楚，
+         * 否则用户会以为 0 表示"不许输出"。
+         *
+         * 用滑块而不是输入框：这里要调的通常是"别写太长 / 让它写长一点"，
+         * 精确到个位数几乎用不到，而在手机上弹键盘会把整个面板顶走。
+         * 步长 256 是按常见模型的粒度取的，拖起来不抖。
+         */
+        val maxTokens = settings.maxTokens ?: 0
+        ParamSlider(
+            label = stringResource(R.string.input_param_max_tokens),
+            valueText = if (maxTokens <= 0) {
+                stringResource(R.string.input_param_max_tokens_unlimited)
+            } else {
+                maxTokens.toString()
+            },
+            value = maxTokens.toFloat(),
+            range = 0f..MaxTokensCeiling,
+            enabled = true,
+            disabledHint = "",
+            onValueChange = { raw ->
+                // 吸附到 256 的整数倍；落到第一档以下就当"不限制"
+                val snapped = (raw / MaxTokensStep).roundToInt() * MaxTokensStep.toInt()
+                onSettingsChange(settings.copy(maxTokens = snapped.takeIf { it > 0 }))
+            },
+        )
+
         // ── 导出当前对话 ──────────────────────────────────
         Spacer(Modifier.size(16.dp))
         PanelDivider()
@@ -1063,6 +1094,10 @@ fun ConversationSettingsPanelContent(
                             exportMenuOpen = false
                             onExportMarkdown()
                         }
+                        AppMenuItem(stringResource(R.string.input_export_text), AppIcons.Feather) {
+                            exportMenuOpen = false
+                            onExportText?.invoke()
+                        }
                         AppMenuItem(stringResource(R.string.input_export_json), AppIcons.Database) {
                             exportMenuOpen = false
                             onExportJson?.invoke()
@@ -1073,6 +1108,10 @@ fun ConversationSettingsPanelContent(
         }
     }
 }
+
+/** 最大输出 tokens 的上限与吸附步长（滑块用）。 */
+private const val MaxTokensCeiling = 8192f
+private const val MaxTokensStep = 256f
 
 /** 带条件说明的参数滑块。禁用时会明确写出原因，而不是只置灰。 */
 @Composable

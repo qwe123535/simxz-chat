@@ -22,6 +22,8 @@ import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.DragInteraction
@@ -33,6 +35,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -46,6 +50,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -61,6 +66,7 @@ import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
@@ -80,9 +86,11 @@ import androidx.compose.ui.res.stringResource
 import androidx.core.content.ContextCompat
 import androidx.compose.ui.unit.dp
 import com.simplechat.app.R
+import com.simplechat.app.data.StartupTrace
 import com.simplechat.app.data.Attachment
 import com.simplechat.app.data.AttachmentImport
 import com.simplechat.app.data.Res
+import com.simplechat.app.data.SlashCommand
 import com.simplechat.app.data.userMessage
 import com.simplechat.app.net.ApiStyle
 import com.simplechat.app.ui.common.ReadAloudEnabled
@@ -90,10 +98,12 @@ import com.simplechat.app.ui.common.SoftShape
 import com.simplechat.app.ui.common.VoiceInputEnabled
 import com.simplechat.app.ui.common.AppConfirmDialog
 import com.simplechat.app.ui.common.AppIcons
+import com.simplechat.app.ui.common.MenuShape
 import com.simplechat.app.ui.common.AppShadow
 import com.simplechat.app.ui.common.IconCircleButton
 import com.simplechat.app.ui.common.MotionEasing
 import com.simplechat.app.ui.common.dismissKeyboardOnTouch
+import com.simplechat.app.ui.markdown.LocalCodeWrap
 import com.simplechat.app.ui.markdown.warmMarkdownCache
 import com.simplechat.app.ui.theme.LocalChatColors
 import kotlinx.coroutines.Dispatchers
@@ -111,6 +121,14 @@ import androidx.compose.foundation.layout.fillMaxHeight
 
 /** 输入栏下方最多同时展开一个面板。 */
 private enum class InputPanelState { NONE, THINKING, STATS, SETTINGS, ATTACH }
+
+/**
+ * 导出菜单里的三种格式。
+ *
+ * 用枚举而不是一串 Boolean：三选一的入口再加一个格式时，
+ * `exportTo(uri, markdown = false)` 那种调用会立刻变成"第三个参数传什么"的猜谜。
+ */
+private enum class ExportFormat { JSON, MARKDOWN, TEXT }
 
 /** 切换会话的淡入时长。**快** —— 慢一点就从"过渡"变成"等待"了。 */
 private const val SwitchFadeInMs = 160
@@ -414,8 +432,8 @@ fun ChatScreen(
     val scope = rememberCoroutineScope()
     var exportHint by remember { mutableStateOf<String?>(null) }
 
-    /** 两个导出口共用：拿到目标位置后写文件。 */
-    suspend fun exportTo(uri: Uri, markdown: Boolean) {
+    /** 三个导出口共用：拿到目标位置后写文件。 */
+    suspend fun exportTo(uri: Uri, format: ExportFormat) {
         val id = vm.currentConversationId
         var saved = false
         var staged: java.io.File? = null
@@ -424,7 +442,11 @@ fun ChatScreen(
             val file = java.io.File.createTempFile("chat-export-", ".tmp", context.cacheDir)
             staged = file
             withContext(Dispatchers.IO) {
-                vm.exportConversationFile(file, id, markdown)
+                when (format) {
+                    ExportFormat.JSON -> vm.exportConversationFile(file, id, markdown = false)
+                    ExportFormat.MARKDOWN -> vm.exportConversationFile(file, id, markdown = true)
+                    ExportFormat.TEXT -> vm.exportConversationTextFile(file, id)
+                }
                 com.simplechat.app.data.copyExportFile(file, {
                     context.contentResolver.openOutputStream(uri, "wt") ?: error(Res.get(R.string.error_write_failed))
                 })
@@ -459,13 +481,19 @@ fun ChatScreen(
     val exportJsonLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("application/json"),
     ) { uri ->
-        if (uri != null) scope.launch { exportTo(uri, markdown = false) }
+        if (uri != null) scope.launch { exportTo(uri, ExportFormat.JSON) }
     }
 
     val exportMarkdownLauncher = rememberLauncherForActivityResult(
         ActivityResultContracts.CreateDocument("text/markdown"),
     ) { uri ->
-        if (uri != null) scope.launch { exportTo(uri, markdown = true) }
+        if (uri != null) scope.launch { exportTo(uri, ExportFormat.MARKDOWN) }
+    }
+
+    val exportTextLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("text/plain"),
+    ) { uri ->
+        if (uri != null) scope.launch { exportTo(uri, ExportFormat.TEXT) }
     }
 
     // ── 附件 ──────────────────────────────────────────────
@@ -754,7 +782,10 @@ fun ChatScreen(
              * `pathRebuilding` / `switchingConversation` 期间让位 ——
              * 那两种是**故意**要把视口挪到别处去的，别和它们抢。
              */
-            if (!detached && vm.searchTarget == null && !vm.switching && !pathRebuilding && !switchingConversation &&
+            // 关掉「生成时自动跟随」就只在非生成期间粘底：文字照样在长，视口不动
+            val followAllowed = !vm.isStreamingHere || vm.followWhileGenerating
+            if (followAllowed && !detached && vm.searchTarget == null && !vm.switching &&
+                !pathRebuilding && !switchingConversation &&
                 !listState.isScrollInProgress && listState.canScrollForward
             ) {
                 // 向底部**逼近**一帧，不是一把跳过去 —— 见 ScrollToBottom.followBottom
@@ -786,6 +817,7 @@ fun ChatScreen(
 
     /** 追加新消息后跟到底部（用户没离开时）。 */
     LaunchedEffect(vm.messages.size) {
+        if (vm.messages.isNotEmpty()) StartupTrace.mark(context, "data.chat.first")
         if (vm.searchTarget != null) return@LaunchedEffect
         if (switchingConversation) return@LaunchedEffect
         if (detached) return@LaunchedEffect
@@ -1158,6 +1190,10 @@ fun ChatScreen(
                         EmptyState(modifier = Modifier.align(Alignment.Center))
                     }
                 } else {
+                    CompositionLocalProvider(
+                        LocalMinimalMode provides vm.minimalMode,
+                        LocalCodeWrap provides vm.codeWrap,
+                    ) {
                     MessageList(
                         messages = vm.messages,
                         searchTarget = vm.searchTarget,
@@ -1218,6 +1254,37 @@ fun ChatScreen(
                         speakingId = if (ReadAloudEnabled && readAloudAvailable) speaker.speakingId else null,
                         readAloudAvailable = ReadAloudEnabled && readAloudAvailable,
                         autoCollapseThinking = vm.autoCollapseThinking,
+                        processAutoExpand = vm.processAutoExpand,
+                        favorites = vm.favoriteMessages,
+                        onToggleFavorite = { message -> vm.toggleFavorite(message.id) },
+                        onShareImage = { message ->
+                            /*
+                             * 长图：从这条往上取一段（含它自己），最多 30 条。
+                             *
+                             * 为什么不是"整段对话"：几千条消息会画出几万像素高、
+                             * 内存直接爆。取最近的上下文才是一次分享真正要表达的东西。
+                             */
+                            val turns = vm.messages
+                                .takeWhile { it.id != message.id }
+                                .takeLast(29)
+                                .plus(message)
+                                .filter { it.content.isNotBlank() }
+                                .map { ConversationImage.Turn(it.content, it.role == MessageRole.USER) }
+                            scope.launch {
+                                val file = withContext(Dispatchers.IO) {
+                                    ConversationImage.render(context, vm.conversationTitle(), turns)
+                                }
+                                if (file == null) {
+                                    vm.showBanner(Res.get(R.string.share_image_failed))
+                                } else {
+                                    ConversationImage.share(
+                                        context,
+                                        file,
+                                        context.getString(R.string.share_image_chooser),
+                                    )
+                                }
+                            }
+                        },
                         onSpeak = { message ->
                             // 朗读正文（不是时间线里的过程文字）：用户要听的是回答本身
                             if (ReadAloudEnabled) speaker.toggle(message.id, message.content)
@@ -1251,6 +1318,7 @@ fun ChatScreen(
                             vm.retryMessage(message)
                         },
                     )
+                    }
                 }
             }
 
@@ -1304,7 +1372,7 @@ fun ChatScreen(
                  */
                 visible = vm.messages.isNotEmpty() && detached && !atBottom,
                 // 生成中在按钮外圈转一圈进度环；生成完自动消失
-                generating = vm.isStreaming,
+                generating = vm.isStreamingHere,
                 onClick = {
                     // 用户显式要"看最新的" —— 这是少数几个该主动滚动的地方之一
                     resumeFollowing()
@@ -1403,6 +1471,24 @@ fun ChatScreen(
                     onOpen = { spec -> viewingImage = pending.filter { it.isImage } to spec },
                 )
 
+                /*
+                 * 快捷指令面板：输入框里只有一个还没打完的 `/xxx` 时出现。
+                 *
+                 * 条件是"还没空格"—— 用户开始写正文（`/翻译 这段话`）之后面板就该让开，
+                 * 否则它会一直挡在输入栏上面。
+                 */
+                val slashQuery = input.trimStart()
+                if (slashQuery.startsWith("/") && !slashQuery.contains(' ')) {
+                    SlashCommandPanel(
+                        commands = vm.slashCommands,
+                        query = slashQuery.drop(1),
+                        onPick = { command ->
+                            input = command.text
+                            panel = InputPanelState.NONE
+                        },
+                    )
+                }
+
                 InputBar(
                     text = input,
                     onTextChange = {
@@ -1446,9 +1532,11 @@ fun ChatScreen(
                     webSearchEnabled = vm.supportsWebSearch && vm.webSearch,
                     thinkingPanelOpen = panel == InputPanelState.THINKING,
                     onOpenThinkingPanel = { openPanel(InputPanelState.THINKING) },
-                    settingsPanelOpen = panel == InputPanelState.SETTINGS,
                     onOpenSettingsPanel = { openPanel(InputPanelState.SETTINGS) },
-                    streaming = vm.isStreaming,
+                    hapticSend = vm.hapticSend,
+                    hapticLongPress = vm.hapticLongPress,
+                    sendOnEnter = vm.sendOnEnter,
+                    streaming = vm.isStreamingHere,
                     onSend = {
                         val target = editingMessage
                         val attached = pending
@@ -1592,6 +1680,14 @@ fun ChatScreen(
                             {
                                 exportHint = null
                                 exportJsonLauncher.launch(exportFileName("json"))
+                            }
+                        } else {
+                            null
+                        },
+                        onExportText = if (vm.currentConversationId != null) {
+                            {
+                                exportHint = null
+                                exportTextLauncher.launch(exportFileName("txt"))
                             }
                         } else {
                             null
@@ -1855,4 +1951,61 @@ internal fun BannerBar(message: String, onDismiss: () -> Unit, onNeverRemind: ((
 }
 
 
+/**
+ * 输入框上方的快捷指令列表。
+ *
+ * 只显示匹配当前输入的那几条；一条都不匹配时整块不渲染（由调用处判断），
+ * 所以这里不需要空态文案。
+ */
+@Composable
+private fun SlashCommandPanel(
+    commands: List<SlashCommand>,
+    query: String,
+    onPick: (SlashCommand) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    val matched = remember(commands, query) {
+        if (query.isEmpty()) {
+            commands
+        } else {
+            commands.filter { it.name.startsWith(query, ignoreCase = true) }
+        }
+    }
+    if (matched.isEmpty()) return
 
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 16.dp, vertical = 6.dp)
+            .clip(MenuShape)
+            .background(colors.card)
+            .heightIn(max = 220.dp)
+            .verticalScroll(rememberScrollState()),
+    ) {
+        matched.forEach { command ->
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onPick(command) }
+                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = "/" + command.name,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = command.text.lineSequence().firstOrNull().orEmpty(),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = colors.placeholder,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+        }
+    }
+}

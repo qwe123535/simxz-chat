@@ -1,6 +1,10 @@
 package com.simplechat.app.ui.theme
 
 import androidx.compose.material3.Typography
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -85,8 +89,57 @@ val SimpleChatTypography = Typography(
  * 两份样式都是**常量**（不是 `get()`）：`.copy` 会新建 TextStyle，挂在组合里的
  * 样式每帧读一次，白白的分配没必要。[MarkdownBlockView] 每块都会读它。
  */
-fun markdownBodyStyle(cjk: Boolean): TextStyle =
-    if (cjk) MarkdownBodyCjkStyle else MarkdownBodyWesternStyle
+@Composable
+fun markdownBodyStyle(cjk: Boolean): TextStyle {
+    val overrides = LocalTextOverrides.current
+    return remember(cjk, overrides) { buildMarkdownBodyStyle(cjk, overrides) }
+}
+
+private fun buildMarkdownBodyStyle(cjk: Boolean, overrides: TextOverrides): TextStyle {
+    val base = if (cjk) MarkdownBodyCjkStyle else MarkdownBodyWesternStyle
+    if (overrides.isDefault) return base
+    return base.copy(
+        lineHeight = base.lineHeight * overrides.lineHeightScale,
+        fontFamily = if (overrides.bodyMonospace) FontFamily.Monospace else base.fontFamily,
+    )
+}
+
+/**
+ * 阅读排版的两项设置（设置 → 阅读排版）：行高倍率与正文等宽。
+ *
+ * 用 CompositionLocal 而不是往下传参数：读它们的只有排版这几处
+ * （[markdownBodyStyle]、主题里的 [Typography]），而要穿过的层级很深
+ * —— 从 `SimpleChatTheme` 一路传到 `MarkdownText`，中间十几层都与它无关。
+ */
+@Immutable
+data class TextOverrides(
+    val lineHeightScale: Float = 1f,
+    val bodyMonospace: Boolean = false,
+) {
+    /** 全默认时跳过一切 `.copy`：这两项大多数人不会动，别让每帧都白分配样式。 */
+    val isDefault: Boolean get() = lineHeightScale == 1f && !bodyMonospace
+}
+
+val LocalTextOverrides = staticCompositionLocalOf { TextOverrides() }
+
+/**
+ * 把行高 / 等宽应用到 Material 的三档正文样式上。
+ *
+ * 只动 `bodyLarge/Medium/Small`：标题、标签的样式是"结构"，
+ * 行高放大只会让标题离正文更远，不是用户调这个开关想要的效果。
+ */
+fun Typography.withReadingOverrides(overrides: TextOverrides): Typography {
+    if (overrides.isDefault) return this
+    fun TextStyle.tuned(): TextStyle = copy(
+        lineHeight = lineHeight * overrides.lineHeightScale,
+        fontFamily = if (overrides.bodyMonospace) FontFamily.Monospace else fontFamily,
+    )
+    return copy(
+        bodyLarge = bodyLarge.tuned(),
+        bodyMedium = bodyMedium.tuned(),
+        bodySmall = bodySmall.tuned(),
+    )
+}
 
 /** 中文档正文：左对齐（原因见上）。 */
 private val MarkdownBodyCjkStyle: TextStyle =

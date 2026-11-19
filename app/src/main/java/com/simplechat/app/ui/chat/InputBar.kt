@@ -24,6 +24,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Icon
 import androidx.compose.material3.LocalTextStyle
 import androidx.compose.material3.MaterialTheme
@@ -36,6 +38,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.text.TextRange
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -67,6 +70,7 @@ import com.simplechat.app.ui.common.AppShadow
 import com.simplechat.app.data.TokenEstimate
 import com.simplechat.app.data.Res
 import com.simplechat.app.ui.common.IconCircleButton
+import com.simplechat.app.ui.common.rememberHaptics
 import com.simplechat.app.ui.common.MotionEasing
 import com.simplechat.app.ui.common.PillShape
 import com.simplechat.app.ui.common.ProgressRing
@@ -98,8 +102,13 @@ fun InputBar(
      */
     webSearchEnabled: Boolean = false,
     onOpenThinkingPanel: () -> Unit,
-    settingsPanelOpen: Boolean,
     onOpenSettingsPanel: () -> Unit,
+    /** 触感反馈：发送时轻震（见 `StoredSettings.hapticSend`）。 */
+    hapticSend: Boolean = false,
+    /** 触感反馈：长按输入框开面板时轻震。 */
+    hapticLongPress: Boolean = false,
+    /** 回车直接发送（见 `StoredSettings.sendOnEnter`）。 */
+    sendOnEnter: Boolean = false,
     streaming: Boolean,
     onSend: () -> Unit,
     onStop: () -> Unit,
@@ -145,6 +154,7 @@ fun InputBar(
 ) {
     val colors = LocalChatColors.current
     val shape = ContainerShape
+    val haptics = rememberHaptics()
     val focusRequester = remember { FocusRequester() }
     val keyboard = LocalSoftwareKeyboardController.current
 
@@ -307,8 +317,47 @@ fun InputBar(
                             if (cancelled) onVoiceHoldCancel() else onVoiceHoldEnd()
                         }
                     }
+                    /*
+                     * 长按输入框 → 对话设置面板。
+                     *
+                     * 只在**输入框为空**时接管：
+                     * - 有文字时长按是选词 / 移光标，抢过来会让最常用的编辑手势失灵；
+                     * - 空框时长按本来什么也不会发生，借它当入口不损失任何东西。
+                     * 按住说话开启时（也是空框）让位给说话 —— 那条路径更要紧。
+                     */
+                    .pointerInput(holdToTalkActive, text.isEmpty(), hapticLongPress) {
+                        if (holdToTalkActive || text.isNotEmpty()) return@pointerInput
+                        awaitEachGesture {
+                            awaitFirstDown(requireUnconsumed = false)
+                            val releasedEarly = withTimeoutOrNull(
+                                viewConfiguration.longPressTimeoutMillis,
+                            ) { waitForUpOrCancellation() }
+                            if (releasedEarly != null) return@awaitEachGesture
+                            if (hapticLongPress) haptics.tick()
+                            onOpenSettingsPanel()
+                            // 吃掉剩下这一段：否则松手会被当成点击，面板刚开就被键盘顶走
+                            waitForUpOrCancellation()
+                        }
+                    }
                     // 用户点回输入框时收起面板，避免键盘与面板同时占屏
                     .onFocusChanged { if (it.isFocused) onTextFieldFocused() },
+                /*
+                 * 回车发送（设置 → 触感与交互）。
+                 *
+                 * 默认**不开**：手机输入法上回车键本来就常被用来换行，聊天框里
+                 * 换行也很常见。打开后把 IME 的动作键改成「发送」，
+                 * 回车就走发送而不是插入换行。
+                 */
+                keyboardOptions = if (sendOnEnter) {
+                    KeyboardOptions(imeAction = ImeAction.Send)
+                } else {
+                    KeyboardOptions.Default
+                },
+                keyboardActions = if (sendOnEnter) {
+                    KeyboardActions(onSend = { if (text.isNotBlank() && !streaming) onSend() })
+                } else {
+                    KeyboardActions.Default
+                },
                 textStyle = LocalTextStyle.current.merge(
                     MaterialTheme.typography.bodyLarge.copy(
                         color = MaterialTheme.colorScheme.onSurface,
@@ -348,34 +397,13 @@ fun InputBar(
                 // 第二行全部按钮**同高**；纯图标一律正圆，只有「图标 + 箭头」用胶囊。
                 // 之前 ⚙ 是 padding 撑出来的椭圆，和 ⊕ / ↑ 的圆并排就很毛糙。
 
-                // ── 对话设置 ─────────────────────────────
-                // 与右侧思考入口同一套样式：灰图标 + 描边；展开时换品牌色底
-                IconCircleButton(
-                    icon = AppIcons.Settings,
-                    contentDescription = stringResource(R.string.input_settings),
-                    onClick = onOpenSettingsPanel,
-                    size = RowButtonSize,
-                    iconSize = 18.dp,
-                    background = if (settingsPanelOpen) colors.capsuleSelected else null,
-                    tint = if (settingsPanelOpen) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        // 未激活也画**黑**（原来是灰的）—— 与 ⊕ / 发送键统一，对齐官方
-                        MaterialTheme.colorScheme.onSurface
-                    },
-                    /*
-                     * 描边**常驻**，激活时换成品牌色。
-                     *
-                     * 官方那套激活样式是「淡底 + 同色描边 + 同色内容」；
-                     * 原来激活态把描边去掉只铺底，在并排的几个按钮里会显得"矮一层"。
-                     */
-                    outlined = true,
-                    outlineColor = if (settingsPanelOpen) {
-                        MaterialTheme.colorScheme.primary
-                    } else {
-                        null
-                    },
-                )
+                /*
+                 * 原来这里有一个 ⚙「对话设置」按钮。
+                 *
+                 * 删掉的原因：底部标签栏已经有了设置，抽屉底部那行也删了，
+                 * 这里是第三个入口 —— 一排按钮里最不该多出来的就是"又一个设置"。
+                 * 面板本身没删，改成**长按输入框**打开（见下面的 BasicTextField）。
+                 */
 
                 // ── 思考档位 + 模型 ───────────────────────
                 ThinkingToggle(
@@ -423,7 +451,10 @@ fun InputBar(
                 SendButton(
                     streaming = streaming,
                     enabled = streaming || text.isNotBlank() || pendingCount > 0,
-                    onClick = { if (streaming) onStop() else onSend() },
+                    onClick = {
+                        if (hapticSend) haptics.tick()
+                        if (streaming) onStop() else onSend()
+                    },
                 )
             }
         }

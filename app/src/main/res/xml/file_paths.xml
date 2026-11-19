@@ -2,10 +2,14 @@
 <!--
     FileProvider 能对外暴露的路径。
 
-    只开 `cacheDir/captures` 一个子目录 —— 这是「拍照」的中转站：
-    相机把照片写进来，我们读完转成 base64 落库，然后立刻删掉。
-    范围开到整个 cacheDir 是没必要的扩大面。
+    只开两个子目录，不开整个 cacheDir：
+
+    - `captures`：「拍照」的中转站。相机把照片写进来，我们读完转成 base64
+      落库，然后立刻删掉；
+    - `share`：分享长图。渲染出来的 PNG 先落在这里，交给系统分享面板，
+      用完按数量淘汰（见 ConversationImage）。
 -->
 <paths>
     <cache-path name="captures" path="captures/" />
+    <cache-path name="shared" path="share/" />
 </paths>

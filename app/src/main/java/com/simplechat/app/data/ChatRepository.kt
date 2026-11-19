@@ -518,6 +518,18 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
     suspend fun resumeStreaming(id: String) =
         messages.resumeStreaming(id, MessageStatus.STREAMING.toStorage())
 
+    /** 按模型聚合的 token 用量，给设置里的「统计」页。 */
+    suspend fun modelUsage(): List<com.simplechat.app.db.ModelUsageRow> =
+        db.messageDao().modelUsage()
+
+    /** 收藏夹：按 id 批量取消息（只含展示需要的列）。 */
+    suspend fun favoriteMessages(ids: List<String>): List<com.simplechat.app.db.FavoriteMessageRow> =
+        if (ids.isEmpty()) emptyList() else db.messageDao().favoritesByIds(ids)
+
+    /** 收藏夹：按 id 批量取会话。 */
+    suspend fun conversationsByIds(ids: List<String>): List<com.simplechat.app.db.ConversationEntity> =
+        if (ids.isEmpty()) emptyList() else db.conversationDao().findByIds(ids)
+
     suspend fun finishMessage(
         id: String,
         content: String,
@@ -529,6 +541,8 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
         thinkingMs: Long? = null,
         timeline: List<ReplyBlock> = emptyList(),
         stopReason: String? = null,
+        tokensIn: Int? = null,
+        tokensOut: Int? = null,
     ) = messages.finish(
         id = id,
         status = status.toStorage(),
@@ -538,6 +552,8 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
         thinkingMs = thinkingMs,
         timeline = ReplyBlocks.encode(timeline),
         stopReason = stopReason,
+        tokensIn = tokensIn,
+        tokensOut = tokensOut,
     ).also {
         messages.checkpoint(
             id = id,
@@ -848,6 +864,71 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
     }
 
     /**
+     * 导出为**纯文本**。
+     *
+     * 和 [exportConversationMarkdown] 是同一份内容、同一批取舍（当前分支、当前版本、
+     * 不带思考内容），只是**不带任何标记符号**：没有 `#`、没有 `**`、没有围栏。
+     * 贴进短信、笔记、记事本这类不认 Markdown 的地方时，那些符号全是噪音 ——
+     * 而"要一份能直接读的稿子"是 Markdown 导出最常见的用途，干脆给它一个干净的版本。
+     */
+    suspend fun exportText(file: File, conversationId: String) = withContext(Dispatchers.IO) {
+        db.withTransaction {
+            val row = checkNotNull(conversations.findById(conversationId)) { "Conversation no longer exists" }
+            val ids = MessageTree.activePathIds(messages.getLightFor(conversationId))
+            file.writer(Charsets.UTF_8).buffered().use { writeConversationText(row, ids, it) }
+        }
+    }
+
+    /** [exportText] 的正文写法：纯文本，靠空行和「我 / AI」分行，不用任何符号。 */
+    private suspend fun writeConversationText(
+        conversation: ConversationEntity,
+        ids: List<String>,
+        writer: Writer,
+    ) {
+        val exportedAt = SimpleDateFormat("yyyy-MM-dd HH:mm", Locale.getDefault())
+            .format(Date(System.currentTimeMillis()))
+        with(writer) {
+            appendLine(conversation.title)
+            appendLine(
+                conversation.model.ifBlank { Res.get(R.string.export_unknown_model) } + " · " +
+                    Res.get(R.string.export_meta, ids.size, exportedAt),
+            )
+            appendLine(Res.get(R.string.export_scope_note))
+            ids.forEach { id ->
+                currentCoroutineContext().ensureActive()
+                val message = readMessageForExport(id).toUi()
+                appendLine()
+                appendLine()
+                appendLine(Res.get(if (message.role == MessageRole.USER) R.string.export_role_me else R.string.export_role_ai))
+                appendLine()
+                if (message.content.isNotBlank()) {
+                    appendLine(message.content.trim())
+                }
+                // 附件与 Markdown 导出一致：图片只留一行占位，文本附件原样跟在后面
+                message.attachments.forEach { attachment ->
+                    appendLine()
+                    if (attachment.kind == Attachment.Kind.IMAGE) {
+                        appendLine(
+                            Res.get(
+                                R.string.export_image_attachment,
+                                attachment.name,
+                                attachment.width,
+                                attachment.height,
+                            ),
+                        )
+                    } else {
+                        appendLine(Res.get(R.string.export_attachment, attachment.name))
+                        appendLine()
+                        appendLine(attachment.data.trimEnd())
+                    }
+                }
+            }
+            appendLine()
+            flush()
+        }
+    }
+
+    /**
      * 导出为 **ZIP 归档**：`manifest.json` + `backup.json` + 每个会话的 Markdown 文稿。
      *
      * 与 [exportBackup] 是**同一份数据**的两种形态 —— 消息、附件、预设、分支一个不少，
@@ -973,6 +1054,16 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
         if (ids.isEmpty()) return null
         val writer = StringWriter()
         writeConversationMarkdown(conversation, ids, writer)
+        return writer.toString()
+    }
+
+    /** [exportText] 的内存版：直接返回文稿字符串。 */
+    suspend fun exportConversationText(conversationId: String): String? {
+        val conversation = conversations.findById(conversationId) ?: return null
+        val ids = MessageTree.activePathIds(messages.getLightFor(conversationId))
+        if (ids.isEmpty()) return null
+        val writer = StringWriter()
+        writeConversationText(conversation, ids, writer)
         return writer.toString()
     }
 

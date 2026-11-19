@@ -30,6 +30,12 @@ data class ChatRequestDto(
     @SerialName("top_p") val topP: Double? = null,
     /** 仅用于 KVCache 隔离与内容安全标识，可选。 */
     @SerialName("user_id") val userId: String? = null,
+    /**
+     * 工具声明。用 `JsonElement` 而不是强类型：不同网关对 `parameters`
+     * 的写法容忍度不同，原样透传最不容易出错。
+     */
+    val tools: kotlinx.serialization.json.JsonElement? = null,
+    @SerialName("tool_choice") val toolChoice: String? = null,
 )
 
 @Serializable
@@ -50,6 +56,17 @@ data class ThinkingDto(val type: String) {
 data class OutMessageDto(
     val role: String,
     val content: kotlinx.serialization.json.JsonElement,
+    /**
+     * 助手消息里请求的工具调用（原样回传，协议要求）。
+     *
+     * 用 `JsonElement` 承载：形状是 `[{id, type:"function", function:{name, arguments}}]`，
+     * 强类型化只会多一层转换。
+     */
+    @SerialName("tool_calls") val toolCalls: kotlinx.serialization.json.JsonElement? = null,
+    /** `role = "tool"` 时必填：这条结果属于哪一次调用。 */
+    @SerialName("tool_call_id") val toolCallId: String? = null,
+    /** 开启「保留思考内容」时，把历史思考一并回传（DeepSeek 支持）。 */
+    @SerialName("reasoning_content") val reasoningContent: String? = null,
 )
 
 @Serializable
@@ -73,6 +90,23 @@ data class DeltaDto(
     val content: String? = null,
     /** 思维链增量。与 `content` 同级（设计文档 §11.5）。 */
     @SerialName("reasoning_content") val reasoningContent: String? = null,
+    /** 工具调用增量（仅带工具时出现）。 */
+    @SerialName("tool_calls") val toolCalls: List<ToolCallDeltaDto>? = null,
+)
+
+/** 工具调用的分片。 */
+@Serializable
+data class ToolCallDeltaDto(
+    val index: Int = 0,
+    val id: String? = null,
+    val type: String? = null,
+    val function: ToolFunctionDeltaDto? = null,
+)
+
+@Serializable
+data class ToolFunctionDeltaDto(
+    val name: String? = null,
+    val arguments: String? = null,
 )
 
 @Serializable

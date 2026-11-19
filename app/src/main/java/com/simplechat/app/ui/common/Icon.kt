@@ -521,6 +521,28 @@ object AppIcons {
         }
     }
 
+    /** 应用锁（Lucide: lock） */
+    val Lock: ImageVector by lazy {
+        vector("Lock") {
+            stroke {
+                moveTo(5f, 11f)
+                lineTo(19f, 11f)
+                arcToRelative(2f, 2f, 0f, false, true, 2f, 2f)
+                lineTo(21f, 19f)
+                arcToRelative(2f, 2f, 0f, false, true, -2f, 2f)
+                lineTo(5f, 21f)
+                arcToRelative(2f, 2f, 0f, false, true, -2f, -2f)
+                lineTo(3f, 13f)
+                arcToRelative(2f, 2f, 0f, false, true, 2f, -2f)
+                close()
+                moveTo(7f, 11f)
+                lineTo(7f, 7f)
+                arcToRelative(5f, 5f, 0f, false, true, 10f, 0f)
+                lineTo(17f, 11f)
+            }
+        }
+    }
+
     /** 不参与上下文（Lucide: eye-off） */
     val EyeOff: ImageVector by lazy {
         vector("EyeOff") {
@@ -1245,6 +1267,40 @@ object AppIcons {
                 moveTo(9f, 8f); horizontalLineTo(15f)
                 moveTo(9f, 16f); horizontalLineTo(15f)
                 moveTo(12f, 8f); verticalLineTo(16f)
+            }
+        }
+    }
+
+    /** 收藏（Lucide: star） */
+    val Star: ImageVector by lazy {
+        vector("Star") {
+            stroke {
+                moveTo(12f, 2.5f)
+                lineTo(15.09f, 8.76f)
+                lineTo(22f, 9.77f)
+                lineTo(17f, 14.64f)
+                lineTo(18.18f, 21.52f)
+                lineTo(12f, 18.27f)
+                lineTo(5.82f, 21.52f)
+                lineTo(7f, 14.64f)
+                lineTo(2f, 9.77f)
+                lineTo(8.91f, 8.76f)
+                close()
+            }
+        }
+    }
+
+    /** 快捷指令（Lucide: zap） */
+    val Zap: ImageVector by lazy {
+        vector("Zap") {
+            stroke {
+                moveTo(13f, 2f)
+                lineTo(3f, 14f)
+                horizontalLineTo(12f)
+                lineTo(11f, 22f)
+                lineTo(21f, 10f)
+                horizontalLineTo(12f)
+                close()
             }
         }
     }

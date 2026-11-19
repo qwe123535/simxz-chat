@@ -4,6 +4,7 @@ import android.app.Application
 import androidx.annotation.BoolRes
 import androidx.annotation.StringRes
 import com.simplechat.app.R
+import com.simplechat.app.net.NetworkTextException
 import com.simplechat.app.net.isRawNetworkError
 import com.simplechat.app.net.networkFailureRes
 import com.simplechat.app.net.serverErrorText
@@ -87,6 +88,8 @@ class AppTextException(val text: AppText) : IllegalArgumentException("AppText(#$
  */
 fun Throwable.userMessage(): String = when (this) {
     is AppTextException -> text.resolve()
+    // 文案在抛出点就已经拼好了（要状态码 + 服务端原文 + 本地排查方向），别再翻一次
+    is NetworkTextException -> message
     /*
      * OkHttp 对非法请求头抛的是 `IllegalArgumentException`：
      * `Unexpected char 0x4f55 at 8 in Authorization value`。

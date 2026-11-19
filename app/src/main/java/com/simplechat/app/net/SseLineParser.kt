@@ -64,6 +64,14 @@ internal class SseLineParser(private val json: Json) {
             delta.content
                 ?.takeIf { it.isNotEmpty() }
                 ?.let { events += StreamEvent.Content(it) }
+            delta.toolCalls?.forEach { call ->
+                events += StreamEvent.ToolCall(
+                    index = call.index,
+                    id = call.id,
+                    name = call.function?.name,
+                    arguments = call.function?.arguments,
+                )
+            }
         }
 
         chunk.usage?.let {

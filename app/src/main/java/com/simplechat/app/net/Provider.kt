@@ -15,6 +15,13 @@ enum class ProviderKind(
     val defaultModel: String,
     /** 模型列表接口是否需要鉴权。OpenCode Go 的 `/models` 实测无需鉴权。 */
     val modelListNeedsAuth: Boolean = true,
+    /**
+     * 是否允许不填 API Key 就发消息。
+     *
+     * 本地 / 局域网模型服务（Ollama、LM Studio、vLLM 等）绝大多数不校验鉴权，
+     * 硬性要求 Key 会让「本地」这条预设根本用不了。其余服务商仍要求 Key。
+     */
+    val apiKeyOptional: Boolean = false,
 ) {
     DEEPSEEK(
         nameRes = R.string.provider_name_deepseek,
@@ -26,11 +33,31 @@ enum class ProviderKind(
         defaultBaseUrl = "https://opencode.ai/zen/go/v1",
         defaultModel = "deepseek-v4-flash",
         modelListNeedsAuth = false,
+        // 与既有行为一致：这个端点不填 Key 也能对话（鉴权由 x-opencode-session 承担）。
+        apiKeyOptional = true,
     ),
     CUSTOM(
         nameRes = R.string.provider_name_custom,
         defaultBaseUrl = "",
         defaultModel = "",
+    ),
+
+    /**
+     * 本地 / 局域网模型服务（Ollama、LM Studio、vLLM、llama.cpp server 等）。
+     *
+     * 与 [CUSTOM] 的差别只有两处，但都影响"能不能用"：
+     * - 默认地址指向本机 Ollama 的 OpenAI 兼容端口，装好就能试，不用先查文档；
+     * - 不填 API Key 也允许发送 —— 这类端点绝大多数不校验鉴权，卡在 Key 上等于废掉整条预设。
+     *
+     * 手机上的 `127.0.0.1` 是手机自己；跑在电脑 / NAS 上的服务改成局域网地址
+     * （如 `http://192.168.1.10:11434/v1`）即可。地址、模型都还能在设置页里改。
+     */
+    LOCAL(
+        nameRes = R.string.provider_name_local,
+        defaultBaseUrl = "http://127.0.0.1:11434/v1",
+        defaultModel = "",
+        modelListNeedsAuth = false,
+        apiKeyOptional = true,
     ),
     ;
 
@@ -118,7 +145,8 @@ object ModelCatalog {
     fun knownModels(kind: ProviderKind): List<ModelInfo> = when (kind) {
         ProviderKind.DEEPSEEK -> deepSeek
         ProviderKind.OPENCODE_GO -> openCodeGo
-        ProviderKind.CUSTOM -> emptyList()
+        // 本地端点跑什么模型只有它自己知道：目录一律为空，由 `/models` 拉取或手动填写。
+        ProviderKind.CUSTOM, ProviderKind.LOCAL -> emptyList()
     }
 
     /**
@@ -213,7 +241,7 @@ data class ProviderConfig(
  */
 fun ProviderKind.headersFor(sessionId: String): Map<String, String> = when (this) {
     ProviderKind.OPENCODE_GO -> mapOf("x-opencode-session" to sessionId)
-    ProviderKind.DEEPSEEK, ProviderKind.CUSTOM -> emptyMap()
+    ProviderKind.DEEPSEEK, ProviderKind.CUSTOM, ProviderKind.LOCAL -> emptyMap()
 }
 
 /**

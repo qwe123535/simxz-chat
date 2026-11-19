@@ -9,22 +9,39 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DrawerValue
+import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
+import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -34,8 +51,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.geometry.Offset
@@ -47,17 +67,19 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.simplechat.app.App
+import com.simplechat.app.data.StartupTrace
 import com.simplechat.app.R
 import com.simplechat.app.db.ConversationEntity
 import com.simplechat.app.ui.chat.ChatScreen
 import com.simplechat.app.ui.chat.ChatViewModel
 import com.simplechat.app.ui.chat.HorizontalScrollRegions
 import com.simplechat.app.ui.common.AppConfirmDialog
+import com.simplechat.app.ui.common.AppIcons
+import com.simplechat.app.ui.common.rememberHaptics
 import com.simplechat.app.ui.common.AppShadow
 import com.simplechat.app.ui.common.AppTextInputDialog
 import com.simplechat.app.ui.common.MotionDurationMs
 import com.simplechat.app.ui.common.MotionEasing
-import com.simplechat.app.ui.common.screenTransform
 import com.simplechat.app.ui.history.ConversationSearchPage
 import com.simplechat.app.ui.history.HistoryDrawerContent
 import com.simplechat.app.ui.history.HistoryViewModel
@@ -67,16 +89,17 @@ import com.simplechat.app.ui.theme.LocalChatColors
 import kotlinx.coroutines.launch
 
 /**
- * 顶层路由。
+ * 顶层路由 —— 也就是底部标签栏的两个标签。
  *
  * 只有两个：对话页与设置页。**搜索不在其中** —— 它不是"另一个页面"，
  * 而是抽屉自己的一种状态（见 [RootScreen] 的 `searchMode`）。
  *
- * [depth] 用来判断转场方向：更深的一层从右侧进来、退出时原路返回。
+ * 两者是**平级**的：切换走淡入淡出，没有"进出一层"的方向感，
+ * 也就没有理由再记深度（早先的 `depth` 是给左右推入转场算方向的）。
  */
-private enum class Route(val depth: Int) {
-    CHAT(0),
-    SETTINGS(1),
+private enum class Route {
+    CHAT,
+    SETTINGS,
 }
 
 /** 抽屉平时的宽度。 */
@@ -114,11 +137,12 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
         ),
     )
     val historyViewModel: HistoryViewModel = history ?: viewModel(
-        factory = HistoryViewModel.factory(container.chatRepository),
+        factory = HistoryViewModel.factory(container.chatRepository, container.settingsStore),
     )
 
     val conversations by historyViewModel.conversations.collectAsStateWithLifecycle()
     val searchPage by historyViewModel.searchPage.collectAsStateWithLifecycle()
+    val recentSearches by historyViewModel.recentSearches.collectAsStateWithLifecycle()
     val drawerState = rememberDrawerState(DrawerValue.Closed)
 
     /*
@@ -143,6 +167,18 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
 
     // 首次进入播种内置预设
     remember { historyViewModel.seedPresets(); Unit }
+
+    /*
+     * 冷启动打点（见 `StartupTrace`）。
+     * 两个点就够定位"白屏到底卡在哪一段"：首帧组合完 = UI 起来了，
+     * 会话列表第一次有数据 = 数据层回来了。两者之间的差值就是数据库那一段。
+     */
+    val startupContext = LocalContext.current
+    val haptics = rememberHaptics()
+    LaunchedEffect(Unit) { StartupTrace.mark(startupContext, "ui.root.firstCompose") }
+    LaunchedEffect(conversations.isNotEmpty()) {
+        if (conversations.isNotEmpty()) StartupTrace.mark(startupContext, "data.history.first")
+    }
 
     /** 关抽屉时顺带退出多选，避免下次打开还停在选择态。 */
     fun closeDrawer() {
@@ -261,6 +297,13 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                             listState = searchListState,
                             autoFocus = !readingSearchResult && drawerState.targetValue == DrawerValue.Open,
                             selectedResultKey = selectedSearchResultKey,
+                            recentSearches = recentSearches,
+                            onRecentClick = { keyword ->
+                                selectedSearchResultKey = null
+                                historyViewModel.updateQuery(keyword)
+                            },
+                            onClearRecent = historyViewModel::clearRecentSearches,
+                            onRememberQuery = { historyViewModel.rememberSearch(historyViewModel.query) },
                             query = historyViewModel.query,
                             onQueryChange = { selectedSearchResultKey = null; historyViewModel.updateQuery(it) },
                             onBack = {
@@ -308,10 +351,9 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                             onExitSelection = { historyViewModel.exitSelection() },
                             onPinSelected = { pinned -> historyViewModel.pinSelected(pinned) },
                             onDeleteSelected = { confirmBatchDelete = true },
-                            onOpenSettings = {
-                                closeDrawer()
-                                route = Route.SETTINGS
-                            },
+                            generatingConversationId = chatViewModel.generatingConversationId,
+                            unseenDone = chatViewModel.unseenDone,
+                            failedConversations = chatViewModel.failedConversations,
                         )
                     }
                 }
@@ -320,38 +362,93 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
     ) {
         Box(modifier = Modifier.fillMaxSize()) {
             /*
-             * 底层内容：对话页 / 设置页。
+             * 底层内容：对话页 / 设置页，两个**平级的标签**。
              *
-             * 页面切换统一走 screenTransform（ui/common/Motion.kt）。
              * SaveableStateHolder 保住各页自己的滚动位置 —— 页面离开组合后
              * `rememberSaveable` 的存档会一并丢掉，于是"从设置返回对话就得重新滚到底"。
              * 存档本来就是导航组件该管的事，我们不引导航组件，就得自己接上。
              */
             val pageStates = rememberSaveableStateHolder()
 
-            AnimatedContent(
-                targetState = route,
-                transitionSpec = {
-                    screenTransform(forward = targetState.depth > initialState.depth)
-                },
-                label = "route",
-            ) { target ->
-                pageStates.SaveableStateProvider(target) {
-                    when (target) {
-                        Route.CHAT -> ChatScreen(
-                            vm = chatViewModel,
-                            onOpenDrawer = { scope.launch { drawerState.open() } },
-                            onNewConversation = {
+            /*
+             * 键盘弹出时把标签栏收起来。
+             *
+             * 聊天页的输入区已经用 imePadding 贴着键盘，再留一条 56dp 的标签栏，
+             * 键盘上方就会多出一条什么也没有的带子 —— 而那正好是用户正在看的
+             * 最后一行回复的位置。
+             */
+            val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+
+            Column(modifier = Modifier.fillMaxSize()) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f)
+                        /*
+                         * 标签栏在场时，导航栏内边距归标签栏自己吃。
+                         *
+                         * 消费掉之后 ChatScreen 里的 navigationBarsPadding() 归零，
+                         * 否则输入区会被顶起一条导航栏的高度，标签栏和输入框之间
+                         * 空出 20 多 dp 的灰带（双层内边距）。
+                         */
+                        .then(
+                            if (imeVisible) Modifier
+                            else Modifier.consumeWindowInsets(WindowInsets.navigationBars),
+                        ),
+                ) {
+                    AnimatedContent(
+                        targetState = route,
+                        transitionSpec = {
+                            /*
+                             * 两个标签是**平级**的，不再用左右推入。
+                             * 横滑会让人以为"还能再往右滑回去"，而这里没有第三页。
+                             */
+                            fadeIn(tween(MotionDurationMs, easing = MotionEasing))
+                                .togetherWith(fadeOut(tween(MotionDurationMs, easing = MotionEasing)))
+                        },
+                        label = "route",
+                    ) { target ->
+                        pageStates.SaveableStateProvider(target) {
+                            when (target) {
+                                Route.CHAT -> ChatScreen(
+                                    vm = chatViewModel,
+                                    onOpenDrawer = { scope.launch { drawerState.open() } },
+                                    onNewConversation = {
+                                        readingSearchResult = false
+                                        selectedSearchResultKey = null
+                                        searchMode = false
+                                        historyViewModel.updateQuery("")
+                                        chatViewModel.newConversation()
+                                    },
+                                )
+
+                                // 设置不再"盖"在对话上面：它是右边那个标签，
+                                // 所以一级页没有返回箭头（见 SettingsScreen 的 topBar）
+                                Route.SETTINGS -> SettingsScreen(
+                                    onBack = { route = Route.CHAT },
+                                    onOpenConversation = { id ->
+                                        route = Route.CHAT
+                                        chatViewModel.openConversation(id)
+                                    },
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (!imeVisible) {
+                    BottomTabBar(
+                        current = route,
+                        onSelect = { picked ->
+                            if (picked != route) {
+                                // 切走时把抽屉的搜索态收干净，回来不该还停在搜索页
                                 readingSearchResult = false
                                 selectedSearchResultKey = null
                                 searchMode = false
-                                historyViewModel.updateQuery("")
-                                chatViewModel.newConversation()
-                            },
-                        )
-
-                        Route.SETTINGS -> SettingsScreen(onBack = { route = Route.CHAT })
-                    }
+                            }
+                            route = picked
+                        },
+                    )
                 }
             }
 
@@ -410,6 +507,7 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                 if (chatViewModel.currentConversationId == target.id) {
                     chatViewModel.newConversation()
                 }
+                if (chatViewModel.hapticDelete) haptics.tick()
                 historyViewModel.delete(target.id)
                 deleteTarget = null
             },
@@ -429,9 +527,98 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                 if (chatViewModel.currentConversationId in historyViewModel.selectedIds) {
                     chatViewModel.newConversation()
                 }
+                if (chatViewModel.hapticDelete) haptics.tick()
                 historyViewModel.deleteSelected()
                 confirmBatchDelete = false
             },
+        )
+    }
+}
+
+/**
+ * 底部标签栏：对话 / 设置。
+ *
+ * 为什么把它当成"标签"而不是"从右边推入的一页"：设置与对话是**平级**的日常去处，
+ * 谁都会来回切好几次（改个模型、回来接着聊）。每次切换都做一次左右推入，
+ * 会让人以为自己在"进出一层"，而不是"换一个标签"—— 于是每次回对话都要重新定位。
+ * 标签栏 + 淡入淡出，语义才对得上。
+ *
+ * 键盘弹出时由调用方整个收起来（见 [RootScreen] 里 `imeVisible` 的判断）。
+ */
+@Composable
+private fun BottomTabBar(current: Route, onSelect: (Route) -> Unit) {
+    val colors = LocalChatColors.current
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .background(colors.card)
+            /*
+             * 导航栏内边距由标签栏自己吃：上面那层 Box 已经 consume 掉了，
+             * 但手势导航条仍然需要一段底部留白，否则文字贴在屏幕边缘。
+             */
+            .navigationBarsPadding(),
+    ) {
+        HorizontalDivider(thickness = 0.5.dp, color = colors.divider)
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .height(TabBarHeight),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            TabItem(
+                route = Route.CHAT,
+                icon = AppIcons.Bubble,
+                label = stringResource(R.string.nav_chat),
+                current = current,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f),
+            )
+            TabItem(
+                route = Route.SETTINGS,
+                icon = AppIcons.Settings,
+                label = stringResource(R.string.nav_settings),
+                current = current,
+                onSelect = onSelect,
+                modifier = Modifier.weight(1f),
+            )
+        }
+    }
+}
+
+/** 标签栏高度（不含导航栏内边距）。 */
+private val TabBarHeight = 56.dp
+
+/** 单个标签：图标 + 一行文字，选中用品牌色。 */
+@Composable
+private fun TabItem(
+    route: Route,
+    icon: ImageVector,
+    label: String,
+    current: Route,
+    onSelect: (Route) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalChatColors.current
+    val selected = route == current
+    val tint = if (selected) MaterialTheme.colorScheme.primary else colors.placeholder
+    Column(
+        modifier = modifier
+            .fillMaxHeight()
+            .clickable { onSelect(route) },
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.Center,
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = label,
+            tint = tint,
+            modifier = Modifier.size(22.dp),
+        )
+        Spacer(Modifier.height(3.dp))
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = tint,
         )
     }
 }

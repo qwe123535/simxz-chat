@@ -23,6 +23,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -44,9 +45,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -105,6 +108,14 @@ import androidx.compose.foundation.lazy.itemsIndexed
  * 编辑 / 删除，有多个版本时右侧补 `‹ n/m ›`。
  * 长按消息弹菜单 —— 与操作栏功能一致，但少一次精确点击（拇指友好）。
  */
+/**
+ * 极简模式（设置 → AI 行为）：只留正文，藏掉时间戳与操作栏。
+ *
+ * 用 CompositionLocal 而不是加参数：这条链要穿过 `MessageList` → `MessageRow`
+ * → 各个块组件，五个函数加同一个布尔参数，比读一个值吵得多。
+ */
+val LocalMinimalMode = compositionLocalOf { false }
+
 @Composable
 fun MessageList(
     messages: List<UiMessage>,
@@ -155,6 +166,18 @@ fun MessageList(
      * 连历史消息的初态也跟着变（用户在设置里刚改完，回头看旧会话该是新行为）。
      */
     autoCollapseThinking: Boolean = true,
+    /**
+     * 过程块（思维链 / 时间线）默认展开。
+     *
+     * 与 [autoCollapseThinking] 是**覆盖**关系而不是同一个开关：
+     * 后者管"正文开始时自动收起"，这个管"一进来就摊开"。
+     */
+    processAutoExpand: Boolean = false,
+    /** 已收藏的消息 id（收藏状态存在设置里，不在消息表里）。 */
+    favorites: Set<String> = emptySet(),
+    onToggleFavorite: (UiMessage) -> Unit = {},
+    /** 把这一段对话渲染成一张长图并分享。 */
+    onShareImage: (UiMessage) -> Unit = {},
     searchTarget: SearchTarget? = null,
     onDismissSearch: () -> Unit = {},
     searchBottomObstructionPx: Int = 0,
@@ -276,6 +299,7 @@ fun MessageList(
                 speakingId = speakingId,
                 readAloudAvailable = readAloudAvailable,
                 autoCollapseThinking = autoCollapseThinking,
+                processAutoExpand = processAutoExpand,
                 /*
                  * 折叠/展开**不需要任何视口补偿**（顶部为原点）。
                  *
@@ -301,6 +325,9 @@ fun MessageList(
                 onVariantChange = { onVariantChange(message, it) },
                 onOpenImage = { onOpenImage(message, it) },
                 onRetry = { onRetry(message) },
+                favorited = message.id in favorites,
+                onToggleFavorite = { onToggleFavorite(message) },
+                onShareImage = { onShareImage(message) },
             )
         }
     }
@@ -327,6 +354,7 @@ private fun MessageRow(
     speakingId: String?,
     readAloudAvailable: Boolean,
     autoCollapseThinking: Boolean,
+    processAutoExpand: Boolean = false,
     onTogglePeek: () -> Unit,
     onCopy: () -> Unit,
     onRegenerate: () -> Unit,
@@ -339,6 +367,9 @@ private fun MessageRow(
     onOpenImage: (Attachment) -> Unit,
     onRetry: () -> Unit,
     onFoldToggle: () -> Unit,
+    favorited: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
+    onShareImage: () -> Unit = {},
 ) {
     var menuOpen by remember { mutableStateOf(false) }
     /*
@@ -459,6 +490,7 @@ private fun MessageRow(
                 selecting = selecting,
                 selectionState = selectionState,
                 autoCollapseThinking = autoCollapseThinking,
+                processAutoExpand = processAutoExpand,
                 // 点一下 = 看这条是谁写的、占多少 token（再点收起）
                 onClick = onTogglePeek,
                 onLongClick = { menuOpen = true },
@@ -490,7 +522,15 @@ private fun MessageRow(
             }
         }
 
-        if (actionable && !isUser) {
+        /*
+         * 这一轮的真实用量。挂在正文下方、操作栏上方 —— 它属于「这条回复」，
+         * 而不属于操作。流式中不显示（还没报，显示个 0 只会误导）。
+         */
+        if (!isUser && !message.streaming) {
+            UsageRow(message)
+        }
+
+        if (actionable && !isUser && !LocalMinimalMode.current) {
             Spacer(Modifier.size(MessageGap))
             MessageActions(
                 message = message,
@@ -505,10 +545,97 @@ private fun MessageRow(
                 onEdit = onEdit,
                 onDelete = onDelete,
                 onVariantChange = onVariantChange,
+                favorited = favorited,
+                onToggleFavorite = onToggleFavorite,
+                onShareImage = onShareImage,
             )
         }
     }
     }
+}
+
+/**
+ * 一条回复的 token 用量，默认收起。
+ *
+ * 为什么默认收起：只有"这次怎么这么快 / 这么贵"的时候才需要数字，
+ * 常驻两行会把每条回复的间距撑大。
+ *
+ * 为什么显示服务端报的值而不是 [TokenEstimate]：本地估算按字数猜，
+ * 和真实用量能差一倍；把它写进历史就是假数据。服务端没报就老实说「未记录」。
+ */
+@Composable
+private fun UsageRow(message: UiMessage) {
+    val colors = LocalChatColors.current
+    var expanded by remember(message.id) { mutableStateOf(false) }
+    Column(modifier = Modifier.padding(top = 6.dp)) {
+        Row(
+            modifier = Modifier
+                .clip(PillShape)
+                .clickable { expanded = !expanded }
+                .padding(horizontal = 6.dp, vertical = 3.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Icon(
+                imageVector = if (expanded) AppIcons.ChevronDown else AppIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.placeholder,
+                modifier = Modifier.size(13.dp),
+            )
+            Text(
+                text = message.totalTokens?.let {
+                    stringResource(R.string.usage_tokens_total, formatTokenCount(it))
+                } ?: stringResource(R.string.usage_tokens_unrecorded),
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.placeholder,
+            )
+        }
+        AnimatedVisibility(visible = expanded) {
+            Column(modifier = Modifier.padding(start = 22.dp, top = 2.dp)) {
+                UsageLine(stringResource(R.string.usage_tokens_in), message.tokensIn)
+                UsageLine(stringResource(R.string.usage_tokens_out), message.tokensOut)
+            }
+        }
+    }
+}
+
+/** 展开后的一行：输入 / 输出。 */
+@Composable
+private fun UsageLine(label: String, value: Int?) {
+    val colors = LocalChatColors.current
+    Row(
+        modifier = Modifier.padding(vertical = 1.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = label,
+            style = MaterialTheme.typography.labelSmall,
+            color = colors.placeholder,
+        )
+        Text(
+            text = value?.let { formatTokenCount(it) }
+                ?: stringResource(R.string.usage_tokens_none),
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurface,
+        )
+    }
+}
+
+/**
+ * 千位分隔。
+ *
+ * 不用 `String.format("%,d")`：它跟系统区域走，某些区域会输出窄空格甚至不分组 ——
+ * 一个纯数字的分隔符不该随语言变。
+ */
+private fun formatTokenCount(value: Int): String {
+    val digits = value.toString()
+    if (digits.length <= 3) return digits
+    val builder = StringBuilder(digits.length + digits.length / 3)
+    digits.forEachIndexed { index, char ->
+        if (index > 0 && (digits.length - index) % 3 == 0) builder.append(',')
+        builder.append(char)
+    }
+    return builder.toString()
 }
 
 /**
@@ -794,6 +921,7 @@ fun AssistantBlock(
     onFoldToggle: () -> Unit = {},
     /** 思考内容是否自动收起；见 `MessageList` 的同名参数。 */
     autoCollapseThinking: Boolean = true,
+    processAutoExpand: Boolean = false,
 ) {
     /*
      * 初态由设置决定（`TODO.md` 里那条"只写不读"的开关就是这里接上的）：
@@ -803,8 +931,8 @@ fun AssistantBlock(
      * 代价是切换设置会把手动展开/收起的状态重置一次 —— 可接受，
      * 因为那一刻用户要看的正是"这个开关到底有没有用"。
      */
-    var reasoningExpanded by remember(autoCollapseThinking) {
-        androidx.compose.runtime.mutableStateOf(!autoCollapseThinking)
+    var reasoningExpanded by remember(autoCollapseThinking, processAutoExpand) {
+        androidx.compose.runtime.mutableStateOf(processAutoExpand || !autoCollapseThinking)
     }
     val hasReasoning = !message.reasoning.isNullOrBlank()
 
@@ -983,6 +1111,9 @@ private fun MessageActions(
     onEdit: () -> Unit,
     onDelete: () -> Unit,
     onVariantChange: (Int) -> Unit,
+    favorited: Boolean = false,
+    onToggleFavorite: () -> Unit = {},
+    onShareImage: () -> Unit = {},
 ) {
     val colors = LocalChatColors.current
 
@@ -1028,6 +1159,21 @@ private fun MessageActions(
                 )
             }
         }
+        ActionIcon(
+            icon = AppIcons.Star,
+            description = stringResource(
+                if (favorited) R.string.favorite_remove else R.string.favorite_add,
+            ),
+            onClick = onToggleFavorite,
+            colors = colors,
+            highlight = favorited,
+        )
+        ActionIcon(
+            icon = AppIcons.Image,
+            description = stringResource(R.string.action_share_image),
+            onClick = onShareImage,
+            colors = colors,
+        )
         ActionIcon(AppIcons.Edit, stringResource(R.string.action_edit), onEdit, colors)
         ActionIcon(AppIcons.Trash, stringResource(R.string.action_delete), onDelete, colors)
 
@@ -1192,6 +1338,8 @@ private fun ActionIcon(
     description: String,
     onClick: () -> Unit,
     colors: ChatColors,
+    /** 已激活（收藏）：换成主题色，一眼能看出当前状态。 */
+    highlight: Boolean = false,
 ) {
     IconCircleButton(
         icon = icon,
@@ -1199,7 +1347,7 @@ private fun ActionIcon(
         onClick = onClick,
         size = ActionButtonSize,
         iconSize = ActionIconSize,
-        tint = colors.processText,
+        tint = if (highlight) MaterialTheme.colorScheme.primary else colors.processText,
     )
 }
 

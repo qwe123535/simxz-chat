@@ -1,6 +1,13 @@
 package com.simplechat.app.ui.history
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.clickable
@@ -32,7 +39,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.SpanStyle
@@ -75,10 +85,17 @@ private val DrawerTextInset = Space.Screen + Space.Inline
  *   会话 A
  * 今天
  *   会话 B …
- * ─────────────────
- * [ ⚙ 设置 ]                 ← 总设置入口固定在底部
  * ```
+ *
+ * 底部原来有一行「⚙ 设置」—— 加了底部标签栏之后它就成了第三个入口
+ * （标签栏、这行、输入栏的齿轮），所以撤掉了：抽屉只负责会话。
  */
+/**
+ * 会话行右侧的状态点。三种状态互斥，**只显示优先级最高的一个**：
+ * 生成中 > 有新回复 > 上次失败 —— 同时画三个点只会让人看不出重点。
+ */
+internal enum class ConversationStatus { NONE, GENERATING, DONE, FAILED }
+
 @Composable
 fun HistoryDrawerContent(
     conversations: List<ConversationEntity>,
@@ -95,8 +112,13 @@ fun HistoryDrawerContent(
     onExitSelection: () -> Unit,
     onPinSelected: (Boolean) -> Unit,
     onDeleteSelected: () -> Unit,
-    onOpenSettings: () -> Unit,
     modifier: Modifier = Modifier,
+    /** 正在生成的会话 id（后台生成时用户可能已经切走了）。 */
+    generatingConversationId: String? = null,
+    /** 后台生成完成、用户还没点开的会话。 */
+    unseenDone: Set<String> = emptySet(),
+    /** 本次运行里失败过的会话。 */
+    failedConversations: Set<String> = emptySet(),
 ) {
     val colors = LocalChatColors.current
 
@@ -161,52 +183,35 @@ fun HistoryDrawerContent(
                             onRename = { onRename(conversation) },
                             onTogglePin = { onTogglePin(conversation) },
                             onDelete = { onDelete(conversation) },
+                            status = when {
+                                conversation.id == generatingConversationId -> ConversationStatus.GENERATING
+                                conversation.id in unseenDone -> ConversationStatus.DONE
+                                conversation.id in failedConversations -> ConversationStatus.FAILED
+                                else -> ConversationStatus.NONE
+                            },
                         )
                     }
                 }
             }
         }
 
-        // ── 底部：多选操作栏 / 总设置入口 ──────────────────
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(1.dp)
-                .background(colors.divider),
-        )
-
+        // ── 底部：只有多选操作栏 ──────────────────────────
         if (selectionMode) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(1.dp)
+                    .background(colors.divider),
+            )
             SelectionActionBar(
                 count = selectedIds.size,
                 onPin = { onPinSelected(true) },
                 onDelete = onDeleteSelected,
                 onCancel = onExitSelection,
             )
-        } else {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable(onClick = onOpenSettings)
-                    .padding(horizontal = 16.dp, vertical = 14.dp),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
-                Icon(
-                    imageVector = AppIcons.Settings,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.size(21.dp),
-                )
-                Text(
-                    text = stringResource(R.string.settings_title),
-                    style = MaterialTheme.typography.titleSmall,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.weight(1f),
-                )
-            }
         }
 
-        // 手势条（"小白条"）不遮挡设置入口 —— 抽屉自己铺满整屏，底部必须自己让位
+        // 手势条（"小白条"）不遮挡最后一条会话 —— 抽屉自己铺满整屏，底部必须自己让位
         Spacer(Modifier.navigationBarsPadding())
         Spacer(Modifier.height(2.dp))
     }
@@ -370,6 +375,8 @@ internal fun ConversationRow(
     searchRole: String? = null,
     searchDate: Long? = null,
     searchVariant: String? = null,
+    /** 右侧状态点；搜索页不显示。 */
+    status: ConversationStatus = ConversationStatus.NONE,
 ) {
     val colors = LocalChatColors.current
     // 高亮跟着主题色（Material 的 primary 就是设置页里选的品牌色）
@@ -435,13 +442,24 @@ internal fun ConversationRow(
                     }
                     Spacer(Modifier.size(4.dp))
                 }
-                Text(
-                    text = highlightedTitle(conversation.title, highlightQuery, highlightColor),
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = highlightedTitle(conversation.title, highlightQuery, highlightColor),
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        // fill = false：标题短的时候别把点推到最右边
+                        modifier = Modifier.weight(1f, fill = false),
+                    )
+                    if (status != ConversationStatus.NONE && searchDate == null) {
+                        Spacer(Modifier.size(6.dp))
+                        ConversationStatusDot(status)
+                    }
+                }
                 if (snippet != null) {
                     Spacer(Modifier.size(2.dp))
                     Text(
@@ -519,3 +537,64 @@ fun groupConversations(    conversations: List<ConversationEntity>,
     HistoryGroup.entries
         .map { group -> group to conversations.filter { groupOf(it, now) == group } }
         .filter { it.second.isNotEmpty() }
+
+
+/**
+ * 状态点。
+ *
+ * 「生成中」画一个旋转的圆弧而不是静态圆点：静态点看不出"还在动"，
+ * 用户会以为卡住了。绿点/黄点用固定色 —— 它们是**语义色**，
+ * 跟着主题色变会让"完成"和"失败"长得一样。
+ */
+@Composable
+private fun ConversationStatusDot(status: ConversationStatus) {
+    val color = MaterialTheme.colorScheme.primary
+    when (status) {
+        ConversationStatus.GENERATING -> {
+            val transition = rememberInfiniteTransition(label = "generating")
+            val angle by transition.animateFloat(
+                initialValue = 0f,
+                targetValue = 360f,
+                animationSpec = infiniteRepeatable(
+                    animation = tween(durationMillis = 900, easing = LinearEasing),
+                    repeatMode = RepeatMode.Restart,
+                ),
+                label = "angle",
+            )
+            Canvas(modifier = Modifier.size(11.dp)) {
+                val stroke = 1.6.dp.toPx()
+                drawArc(
+                    color = color,
+                    startAngle = angle,
+                    sweepAngle = 250f,
+                    useCenter = false,
+                    style = Stroke(width = stroke),
+                    size = Size(size.width - stroke, size.height - stroke),
+                    topLeft = Offset(stroke / 2f, stroke / 2f),
+                )
+            }
+        }
+
+        ConversationStatus.DONE -> Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(StatusDone),
+        )
+
+        ConversationStatus.FAILED -> Box(
+            modifier = Modifier
+                .size(7.dp)
+                .clip(CircleShape)
+                .background(StatusFailed),
+        )
+
+        ConversationStatus.NONE -> Unit
+    }
+}
+
+/** 完成：绿色（与成功语义一致，不跟主题色）。 */
+private val StatusDone = Color(0xFF3FB950)
+
+/** 失败：琥珀色（不是红色 —— 失败不致命，消息还在，重试就行）。 */
+private val StatusFailed = Color(0xFFD29922)

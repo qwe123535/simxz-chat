@@ -29,9 +29,11 @@ class App : Application() {
 
     override fun onCreate() {
         super.onCreate()
+        com.simplechat.app.data.StartupTrace.mark(this, "app.onCreate")
         com.simplechat.app.data.CrashDiagnostics.install(this)
         Res.init(this)
         container = AppContainer(this)
+        com.simplechat.app.data.StartupTrace.mark(this, "app.container")
         // 「后台继续生成」的前台服务需要 application context（见 BackgroundGeneration）
         com.simplechat.app.data.BackgroundGeneration.install(this)
 

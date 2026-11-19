@@ -35,10 +35,24 @@
         </intent>
     </queries>
 
+    <!--
+        允许明文 HTTP：**只为了让本地 / 局域网模型服务能用**。
+
+        从 Android 9（API 28）起，`usesCleartextTraffic` 默认为 false，OkHttp 会
+        在发请求前抛 `CLEARTEXT communication to 127.0.0.1 not permitted`。
+        而「本地」预设（Ollama / LM Studio / vLLM）和自建端点几乎都只有 http://
+        —— 不打开这一项，整条预设是死的（连 127.0.0.1 也被拦，平台并不豁免回环地址）。
+
+        为什么不用 network_security_config 只放行本地网段：那份 XML 只能按**域名**
+        白名单，写不了 `192.168.0.0/16` 这种网段，局域网地址照样被拦。
+        代价是 http:// 的公网地址也不再被系统兜底拦下 —— 但这类地址本来就要用户
+        自己手填，且「本地」的默认值写死在本机 / 私网。
+    -->
     <application
         android:name=".App"
         android:allowBackup="false"
         android:icon="@mipmap/ic_launcher"
+        android:usesCleartextTraffic="true"
         android:label="@string/app_name"
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
@@ -83,6 +97,21 @@
             android:name=".service.GenerationService"
             android:exported="false"
             android:foregroundServiceType="dataSync" />
+        <!-- 通知栏的「回复」「继续生成」：显式广播，外部调不到 -->
+        <receiver
+            android:name=".service.ReplyReceiver"
+            android:exported="false" />
+
+        <!-- 长图分享：PNG 先写到 cache 目录，再用 FileProvider 给分享面板 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.fileprovider"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/file_paths" />
+        </provider>
     </application>
 
 </manifest>

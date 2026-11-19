@@ -76,6 +76,7 @@
     <string name="error_network_timeout">Connection timed out. Try again shortly</string>
     <string name="error_network_interrupted">The connection was interrupted (server or network hiccup). Please retry</string>
     <string name="error_network_insecure">Secure connection failed. Check your network or certificates</string>
+    <string name="error_connect_refused">Can’t reach the server (connection refused): check the address, the port, and that the service is running</string>
     <string name="error_server_busy">The service is busy or temporarily failing. Try again shortly</string>
     <string name="error_http_status">Server returned HTTP %1$d</string>
     <string name="error_http_unauthorized">Invalid or expired API key. Enter it again in Settings</string>
@@ -108,6 +109,9 @@
 
     <!-- ── Settings: root page ──────────────────────────── -->
     <string name="settings_title">Settings</string>
+    <!-- Bottom tab bar -->
+    <string name="nav_chat">Chat</string>
+    <string name="nav_settings">Settings</string>
     <string name="settings_data">Data management</string>
     <string name="settings_api">API</string>
     <string name="settings_presets">Presets</string>
@@ -125,8 +129,69 @@
     <string name="settings_appearance">Appearance</string>
     <string name="settings_accent">Accent color</string>
     <string name="settings_auto_collapse">Auto-collapse thinking</string>
+    <string name="value_on">On</string>
+    <string name="value_off">Off</string>
     <string name="generation_channel">Generation progress</string>
     <string name="generation_running_title">Generating reply</string>
+    <string name="usage_tokens_total">Usage %1$s tokens</string>
+    <string name="usage_tokens_unrecorded">Usage not recorded</string>
+    <string name="usage_tokens_none">Not recorded</string>
+    <string name="usage_tokens_in">Input</string>
+    <string name="usage_tokens_out">Output</string>
+    <string name="settings_interaction">Haptics &amp; input</string>
+    <string name="settings_storage">Storage &amp; cache</string>
+    <string name="settings_storage_summary">Usage &amp; cleanup</string>
+    <string name="settings_custom_theme">Custom colors</string>
+    <string name="settings_reading">Reading &amp; text</string>
+    <string name="settings_custom_primary">Accent</string>
+    <string name="settings_custom_bubble">My bubble</string>
+    <string name="settings_custom_page_bg">Page background</string>
+    <string name="settings_custom_card">Card background</string>
+    <string name="settings_custom_text">Body text</string>
+    <string name="settings_custom_follow">Follow theme</string>
+    <string name="settings_custom_count">%1$d customized</string>
+    <string name="settings_custom_reset">Reset</string>
+    <string name="settings_custom_reset_all">Reset all colors</string>
+    <string name="settings_custom_note">One set of colors for both light and dark; leave a slot alone to follow the theme.</string>
+    <string name="settings_reading_line_height">Line height</string>
+    <string name="settings_reading_monospace">Monospace body</string>
+    <string name="settings_reading_monospace_hint">Body text in a monospace font; code blocks always are.</string>
+    <string name="settings_reading_preview">Preview</string>
+    <string name="settings_reading_preview_text">Font size belongs to the size setting; spacing and glyphs live here.</string>
+    <string name="color_picker_hue">Hue</string>
+    <string name="color_picker_saturation">Saturation</string>
+    <string name="color_picker_brightness">Brightness</string>
+    <string name="search_recent">Recent searches</string>
+    <string name="settings_clear_search_history">Clear search history</string>
+    <string name="settings_clear_search_history_summary">Keywords only; your chats are untouched</string>
+    <string name="settings_clear_search_history_done">Search history cleared</string>
+    <string name="settings_group_other">Other</string>
+    <string name="value_custom">Custom</string>
+    <string name="settings_haptic_group">Haptics</string>
+    <string name="settings_input_group">Input</string>
+    <string name="haptic_send">Vibrate when sending</string>
+    <string name="haptic_send_hint">The moment you hit send</string>
+    <string name="haptic_long_press">Vibrate on long press</string>
+    <string name="haptic_long_press_hint">Long-press the empty composer to open chat settings</string>
+    <string name="haptic_delete">Vibrate when deleting</string>
+    <string name="haptic_delete_hint">When you confirm deleting a chat</string>
+    <string name="haptic_send_enter">Send on Enter</string>
+    <string name="haptic_send_enter_hint">The keyboard\'s Enter key sends instead of adding a newline</string>
+    <string name="settings_haptic_note">Requires haptic feedback in system settings; nothing happens here once it is off.</string>
+    <string name="settings_storage_group">Usage</string>
+    <string name="settings_storage_clean_group">Reclaimable</string>
+    <string name="storage_db">Database</string>
+    <string name="storage_attachments">Attachments (in use)</string>
+    <string name="storage_orphans">Orphaned files</string>
+    <string name="storage_orphan_count">%1$d files nobody references</string>
+    <string name="storage_cache">Temp cache</string>
+    <string name="storage_clean_hint">Only unreferenced attachments and cache; chats stay untouched</string>
+    <string name="storage_clear">Clean up</string>
+    <string name="storage_clearing">Cleaning…</string>
+    <string name="storage_clear_title">Clean up storage?</string>
+    <string name="storage_clear_body">Deletes attachment files nobody references and the temp cache. Chats and images still in use are untouched.</string>
+    <string name="storage_clear_confirm">Clean up</string>
+    <string name="storage_clear_done">Freed %1$s</string>
     <string name="settings_about_title">About SimpleChat</string>
     <string name="settings_export_all">Export all data</string>
     <string name="settings_export_all_summary">Exports conversations, messages and all versions</string>
@@ -143,8 +208,12 @@
     <string name="api_test">Test connection</string>
     <string name="api_testing">Testing…</string>
     <string name="api_key_unset">Not set</string>
+    <string name="api_key_optional">Not needed</string>
+    <string name="api_local_hint">Local servers usually need no API key. Point Base URL at the server’s OpenAI-compatible endpoint, e.g. Ollama: http://127.0.0.1:11434/v1 (use the LAN address of the machine that runs it).</string>
     <string name="api_test_ok">Connected, %1$d models available</string>
     <string name="api_test_failed">Connection failed: %1$s</string>
+    <string name="api_hint_missing_v1"> (a local URL is usually missing /v1)</string>
+    <string name="api_hint_local_unreachable">; make sure the service is running, the port is right, and the phone is on the same network</string>
     <string name="api_model_unset">Not set</string>
     <string name="api_model_empty_hint">No models yet. Tap “Test connection” to fetch this endpoint’s models, or enter one manually.</string>
     <string name="api_model_manual">Enter model manually</string>
@@ -286,6 +355,7 @@
     <string name="provider_name_deepseek">DeepSeek official</string>
     <string name="provider_name_opencode">OpenCode Go</string>
     <string name="provider_name_custom">Custom</string>
+    <string name="provider_name_local">Local</string>
 
     <!-- ── Conversation modes & reasoning ───────────────── -->
     <string name="mode_creative_title">Writing mode</string>
@@ -432,10 +502,13 @@
     <string name="input_param_temperature">Temperature</string>
     <string name="input_param_temp_disabled">Controlled by the server in thinking mode; has no effect</string>
     <string name="input_param_top_p_disabled">Only takes effect in thinking mode</string>
+    <string name="input_param_max_tokens">Max output tokens</string>
+    <string name="input_param_max_tokens_unlimited">No limit</string>
     <string name="input_export_title">Export this conversation</string>
-    <string name="input_export_hint">Markdown document or JSON backup</string>
+    <string name="input_export_hint">Markdown, plain text, or JSON backup</string>
     <string name="input_export">Export</string>
     <string name="input_export_markdown">Markdown document</string>
+    <string name="input_export_text">Plain text (.txt)</string>
     <string name="input_export_json">JSON backup</string>
 
 
@@ -602,6 +675,142 @@
     <string name="search_role_assistant">AI reply</string>
     <string name="search_title_match">Title match</string>
     <string name="search_load_more">Load more results</string>
+    <string name="settings_group_features">Features</string>
+    <string name="settings_behavior">AI behavior</string>
+    <string name="settings_output">Output &amp; preview</string>
+    <string name="settings_tools">Tools</string>
+    <string name="settings_stats">Statistics</string>
+    <string name="settings_memory">Memory</string>
+    <string name="settings_logs">Error log</string>
+    <string name="settings_keepalive">Background</string>
+    <string name="settings_security">Security</string>
+    <string name="behavior_group_tone">Tone</string>
+    <string name="behavior_tone">Speaking tone</string>
+    <string name="behavior_tone_chat">Casual</string>
+    <string name="behavior_tone_coding">Precise</string>
+    <string name="behavior_tone_hint">Tone only appends a short instruction to the system prompt. Casual is looser; precise stays on topic and skips small talk.</string>
+    <string name="behavior_group_thinking">Thinking display</string>
+    <string name="behavior_thinking_scroll">Follow along while generating</string>
+    <string name="behavior_thinking_scroll_hint">Turn off to keep the view in place while a reply streams.</string>
+    <string name="behavior_step_thinking">Step-by-step thinking</string>
+    <string name="behavior_step_thinking_hint">Asks the model to outline steps first. Steadier on hard questions, wordier on easy ones.</string>
+    <string name="behavior_preserve_reasoning">Send reasoning back</string>
+    <string name="behavior_preserve_reasoning_hint">Passes the previous turn\'s reasoning to the provider. Some models rely on it; it costs a few extra input tokens.</string>
+    <string name="behavior_group_mode">Modes</string>
+    <string name="behavior_learning">Learning mode</string>
+    <string name="behavior_learning_hint">Adds explanations and follow-ups. Slower, better for learning something new.</string>
+    <string name="behavior_soft_compaction">Auto-compact context</string>
+    <string name="behavior_soft_compaction_hint">Summarizes before hitting the context limit instead of failing first.</string>
+    <string name="behavior_minimal">Minimal mode</string>
+    <string name="behavior_minimal_hint">Hides avatars, timestamps and the action bar.</string>
+    <string name="output_group_code">Code</string>
+    <string name="output_code_wrap">Wrap long code lines</string>
+    <string name="output_code_wrap_hint">Off means horizontal scrolling. On a narrow screen that means dragging sideways.</string>
+    <string name="output_group_process">Thinking</string>
+    <string name="output_process_expand">Expand process blocks by default</string>
+    <string name="output_process_expand_hint">Tool calls and process notes start expanded.</string>
+    <string name="output_thinking_collapse">Collapse thinking by default</string>
+    <string name="output_thinking_collapse_hint">Turn off to show reasoning expanded, collapsing it manually when needed.</string>
+    <string name="output_group_link">Links</string>
+    <string name="output_browser_mode">Open with</string>
+    <string name="output_browser_builtin">In-app browser</string>
+    <string name="output_browser_external">System browser</string>
+    <string name="output_browser_hint">The in-app browser keeps you in the conversation; the system browser has more features.</string>
+    <string name="tools_group_search">Web search</string>
+    <string name="tools_search_provider">Search provider</string>
+    <string name="tools_search_official">Provider built-in</string>
+    <string name="tools_search_bing">Bing (free)</string>
+    <string name="tools_search_hint">Built-in search needs the official endpoint and key; Bing goes through a public RSS feed — free, but fewer results.</string>
+    <string name="tools_group_vision">Image understanding</string>
+    <string name="tools_image_model">Vision model</string>
+    <string name="tools_image_model_unset">Follow the chat model</string>
+    <string name="tools_image_model_hint">Leave empty to use the chat model for images; set a dedicated vision model to keep the main one focused.</string>
+    <string name="stats_loading">Gathering…</string>
+    <string name="stats_empty">No usage recorded yet. Come back once some replies have token counts.</string>
+    <string name="stats_group_summary">Summary</string>
+    <string name="stats_requests">Requests</string>
+    <string name="stats_input">Input tokens</string>
+    <string name="stats_output">Output tokens</string>
+    <string name="stats_total">Total</string>
+    <string name="stats_group_models">By model</string>
+    <string name="stats_model_line">%1$d requests · in %2$s · out %3$s</string>
+    <string name="stats_note">Only replies that recorded token counts are included; older messages have none.</string>
+    <string name="memory_group">Long-term memory</string>
+    <string name="memory_empty">No memories yet.</string>
+    <string name="memory_add">Add</string>
+    <string name="memory_edit">Edit memory</string>
+    <string name="memory_placeholder">e.g. I write Kotlin; prefer runnable code</string>
+    <string name="memory_delete_title">Delete</string>
+    <string name="memory_hint">Memories are sent with every request. Specific entries help; too many eat into the context.</string>
+    <string name="logs_group">Recent errors</string>
+    <string name="logs_empty">No errors recorded.</string>
+    <string name="logs_refresh">Refresh</string>
+    <string name="logs_clear">Clear</string>
+    <string name="logs_note">Only summaries are kept — type, message, location. No conversation content or API keys.</string>
+    <string name="keepalive_group_service">Foreground service</string>
+    <string name="keepalive_foreground">Keep a foreground service while generating</string>
+    <string name="keepalive_foreground_hint">Shows a notification so the process survives backgrounding. Off means generation only while in the app.</string>
+    <string name="keepalive_wakelock">Keep running on screen off</string>
+    <string name="keepalive_wakelock_hint">Holds a WakeLock while generating. Steadier, but uses more battery.</string>
+    <string name="keepalive_group_system">System</string>
+    <string name="keepalive_battery">Ignore battery optimization</string>
+    <string name="keepalive_battery_hint">Opens the system screen; you still have to allow Simple-Chat manually.</string>
+    <string name="keepalive_audio">Audio keep-alive</string>
+    <string name="keepalive_audio_hint">Plays silent audio. Some systems are kinder to audio processes; costs a media session.</string>
+    <string name="keepalive_note">These only lower the odds of being killed — no app can guarantee background work.</string>
+    <string name="security_group_lock">App lock</string>
+    <string name="security_app_lock">App lock</string>
+    <string name="security_app_lock_hint">Ask for the device PIN or fingerprint when the app opens or returns from the background.</string>
+    <string name="security_secure_screen">Block screenshots</string>
+    <string name="security_secure_screen_hint">Also hides the thumbnail in the recents switcher.</string>
+    <string name="security_group_network">Network</string>
+    <string name="security_allow_http">Allow plain HTTP</string>
+    <string name="security_allow_http_hint">Local and LAN models usually speak http. Off allows https endpoints only.</string>
+    <string name="security_note">The lock uses the system prompt; Simple-Chat never sees or stores your PIN.</string>
+    <string name="lock_title">Locked</string>
+    <string name="lock_subtitle">Unlock with your device PIN</string>
+    <string name="lock_unlock">Unlock</string>
+    <string name="lock_cancelled">Verification cancelled</string>
+    <string name="compact_auto_done">Context was near the limit — compacted automatically</string>
+    <string name="error_http_blocked">Plain HTTP is off for non-local addresses. Allow it in Settings → Security, or use https</string>
+    <!-- Notification actions -->
+    <string name="notification_channel_done">Replies</string>
+    <string name="notification_action_reply">Reply</string>
+    <string name="notification_reply_hint">Type a reply…</string>
+    <string name="notification_action_continue">Continue</string>
+
+    <!-- Tool calls -->
+    <string name="error_tool_failed">Tool call failed</string>
+
+    <!-- Favorites -->
+    <string name="settings_favorites">Favorites</string>
+    <string name="settings_favorites_summary">Messages &amp; chats</string>
+    <string name="favorites_group_messages">Saved messages</string>
+    <string name="favorites_group_conversations">Saved chats</string>
+    <string name="favorite_add">Save</string>
+    <string name="favorite_remove">Unsave</string>
+    <string name="favorites_empty">Nothing saved yet. Long-press a message, or a chat in the drawer.</string>
+
+    <!-- Slash commands -->
+    <string name="settings_slash_commands">Shortcuts</string>
+    <string name="settings_slash_commands_summary">Type / to use</string>
+    <string name="slash_group">Commands</string>
+    <string name="slash_hint">Type / in the input box and pick one; its text is inserted for you</string>
+    <string name="slash_empty">No shortcuts yet. Add one, like "Translate".</string>
+    <string name="slash_add">New shortcut</string>
+    <string name="slash_name">Name</string>
+    <string name="slash_text">Text</string>
+    <string name="slash_delete_title">Delete shortcut</string>
+    <string name="slash_delete_body">"%1$s" will be removed.</string>
+    <string name="slash_panel_title">Shortcuts</string>
+
+    <!-- Conversation status -->
+    <string name="conversation_status_generating">Generating</string>
+    <string name="conversation_status_done">New reply</string>
+    <string name="conversation_status_failed">Last run failed</string>
+
+    <!-- Long image -->
+    <string name="action_share_image">Share as image</string>
+    <string name="share_image_failed">Couldn\'t render the image</string>
+    <string name="share_image_chooser">Share this conversation</string>
 </resources>
-
-

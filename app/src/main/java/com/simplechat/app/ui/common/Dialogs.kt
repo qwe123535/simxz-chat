@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -111,6 +112,122 @@ fun AppTextInputDialog(
                 DialogTextAction(stringResource(R.string.action_cancel), onClick = onDismiss)
                 Spacer(Modifier.size(8.dp))
                 DialogTextAction(stringResource(R.string.action_save), primary = true, onClick = { onConfirm(value) })
+            }
+        }
+    }
+}
+
+/**
+ * 两段文本的输入弹窗（快捷指令：名称 + 内容）。
+ *
+ * 第二个框允许换行：指令内容常常是一整段提示词，单行框里改不了。
+ * 与 [AppTextInputDialog] 的区别只有这一点，所以没做成参数化的同一份 ——
+ * 单行框那边还有十几个调用点，加参数会让它们都变得难读。
+ */
+@Composable
+fun AppPairInputDialog(
+    title: String,
+    firstLabel: String,
+    firstInitial: String,
+    secondLabel: String,
+    secondInitial: String,
+    onDismiss: () -> Unit,
+    onConfirm: (String, String) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    var first by remember { mutableStateOf(firstInitial) }
+    var second by remember { mutableStateOf(secondInitial) }
+    val focusRequester = remember { FocusRequester() }
+
+    LaunchedEffect(Unit) { focusRequester.requestFocus() }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(decorFitsSystemWindows = false),
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .imePadding()
+                .clip(ContainerShape)
+                .background(colors.card)
+                .padding(20.dp),
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface,
+            )
+            Spacer(Modifier.size(14.dp))
+
+            Text(
+                text = firstLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.placeholder,
+            )
+            Spacer(Modifier.size(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(PillShape)
+                    .background(colors.fieldBackground)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+            ) {
+                BasicTextField(
+                    value = first,
+                    onValueChange = { first = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .focusRequester(focusRequester),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                    singleLine = true,
+                )
+            }
+
+            Spacer(Modifier.size(14.dp))
+
+            Text(
+                text = secondLabel,
+                style = MaterialTheme.typography.labelSmall,
+                color = colors.placeholder,
+            )
+            Spacer(Modifier.size(6.dp))
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clip(MenuShape)
+                    .background(colors.fieldBackground)
+                    .padding(horizontal = 12.dp, vertical = 12.dp),
+            ) {
+                BasicTextField(
+                    value = second,
+                    onValueChange = { second = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .heightIn(min = 72.dp, max = 180.dp),
+                    textStyle = MaterialTheme.typography.bodyMedium.copy(
+                        color = MaterialTheme.colorScheme.onSurface,
+                    ),
+                    cursorBrush = SolidColor(MaterialTheme.colorScheme.primary),
+                )
+            }
+
+            Spacer(Modifier.size(18.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.End,
+            ) {
+                DialogTextAction(stringResource(R.string.action_cancel), onClick = onDismiss)
+                Spacer(Modifier.size(8.dp))
+                DialogTextAction(
+                    stringResource(R.string.action_save),
+                    primary = true,
+                    onClick = { onConfirm(first, second) },
+                )
             }
         }
     }

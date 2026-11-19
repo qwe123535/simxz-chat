@@ -5,6 +5,7 @@ import com.simplechat.app.R
 import com.simplechat.app.data.Res
 import java.io.IOException
 import java.io.InterruptedIOException
+import java.net.ConnectException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
@@ -38,6 +39,14 @@ import javax.net.ssl.SSLException
 internal fun networkFailureRes(error: Throwable): Int = when (error) {
     is UnknownHostException -> R.string.error_network_offline
     is SocketTimeoutException -> R.string.error_network_timeout
+    /*
+     * 连接被拒绝：端口没开 / 服务没起 / 被防火墙挡。
+     *
+     * 不能落进下面那条 `IOException -> 连接被中断`：对本地模型服务（Ollama、LM Studio）
+     * 来说，"连接被拒绝"几乎总是"服务没启动"，而"连接被中断"听起来像网络波动，
+     * 用户会去重试而不是去看服务有没有起。真机反馈里这两类被混为一谈过。
+     */
+    is ConnectException -> R.string.error_connect_refused
     // OkHttp 对"读超时 / 连接被对端关掉"统一抛 InterruptedIOException
     is InterruptedIOException -> R.string.error_network_timeout
     is SSLException -> R.string.error_network_insecure
@@ -287,3 +296,59 @@ private val RAW_NETWORK_ERROR_HINTS = listOf(
 
 /** 网络异常落成文字（供流式客户端在 `catch (IOException)` 里用）。 */
 internal fun Throwable.networkText(): String = Res.get(networkFailureRes(this))
+
+/**
+ * 已经翻译好的网络错误：[message] 就是**要上屏的那句话**，`userMessage()` 不再二次翻译。
+ *
+ * 目前只有一个使用者 —— `ChatApi.fetchModels`。它那里的失败既不是纯 HTTP（要拼状态码提示），
+ * 也不是纯 socket 异常（要补"少了 /v1""服务没启动"这类具体指向），而且这条请求**没有流**，
+ * 不能像 SSE 那样发一条 `StreamEvent.Error`。让异常自己带着成品文案，
+ * 比在界面层再分类一次干净。
+ */
+class NetworkTextException(
+    override val message: String,
+    /** HTTP 状态码；连接层失败（连不上）时为 null。 */
+    val code: Int? = null,
+) : IOException(message)
+
+/**
+ * 是不是本机 / 局域网地址。
+ *
+ * 只用来决定**要不要补本地服务特有的排查方向**：判错一档的代价是多一句提示，
+ * 不影响请求本身。覆盖回环、三段私网、链路本地（手机热点直连）与 `localhost`。
+ */
+internal fun String.isPrivateHost(): Boolean {
+    val host = trim().trim('[', ']').lowercase()
+    if (host.isEmpty()) return false
+    if (host == "localhost" || host == "::1" || host.endsWith(".local")) return true
+    val octets = host.split('.').map { it.toIntOrNull() ?: return false }
+    if (octets.size != 4 || octets.any { it !in 0..255 }) return false
+    return octets[0] == 127 || // 回环：手机自己
+        octets[0] == 10 || // 私网 A
+        (octets[0] == 172 && octets[1] in 16..31) || // 私网 B
+        (octets[0] == 192 && octets[1] == 168) || // 私网 C
+        (octets[0] == 169 && octets[1] == 254) // 链路本地：手机热点直连
+}
+
+/**
+ * 本地端点拉模型列表失败时，要补的那半句是哪个资源；不需要补时返回 null。
+ *
+ * 这两种失败在自建服务上占了绝大多数，而通用文案对它们说不出"下一步做什么"：
+ * - 404 → 地址少了 `/v1`（Ollama 只认 `/v1/models`）；
+ * - 连不上（[code] 为 null）→ 服务没启动 / 端口不对 / 手机与它不在同一网络。
+ *
+ * 纯函数、只回资源 ID：可以在 JVM 单测里钉死，落成文字才需要 Android 资源。
+ */
+@StringRes
+internal fun localModelListHintRes(code: Int?, host: String): Int? = when {
+    !host.isPrivateHost() -> null
+    code == 404 -> R.string.api_hint_missing_v1
+    code == null -> R.string.api_hint_local_unreachable
+    else -> null
+}
+
+/** 拉模型列表失败时给用户的那句话：通用文案 +（本地端点）那半句排查方向。 */
+internal fun modelListFailureText(base: String, code: Int?, host: String): String {
+    val hintRes = localModelListHintRes(code, host) ?: return base
+    return base + Res.get(hintRes)
+}

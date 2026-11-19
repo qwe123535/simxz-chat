@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -72,6 +73,12 @@ fun ConversationSearchPage(
     listState: LazyListState = rememberLazyListState(),
     autoFocus: Boolean = true,
     selectedResultKey: String? = null,
+    /** 最近搜过的关键词（最新在前）。空关键词时显示成一行可点的标签。 */
+    recentSearches: List<String> = emptyList(),
+    onRecentClick: (String) -> Unit = {},
+    onClearRecent: () -> Unit = {},
+    /** 用户点开某条结果时回调：由调用方决定要不要把当前关键词记进历史。 */
+    onRememberQuery: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalChatColors.current
@@ -171,21 +178,30 @@ fun ConversationSearchPage(
 
         // ── 结果 ─────────────────────────────────────────
         if (hits.isEmpty()) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = if (query.isBlank()) {
-                        stringResource(R.string.search_prompt)
-                    } else {
-                        stringResource(R.string.search_no_result)
-                    },
-                    style = MaterialTheme.typography.labelMedium,
-                    color = colors.placeholder,
+            if (query.isBlank() && recentSearches.isNotEmpty()) {
+                RecentSearches(
+                    keywords = recentSearches,
+                    onClick = onRecentClick,
+                    onClear = onClearRecent,
+                    modifier = Modifier.weight(1f),
                 )
+            } else {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = if (query.isBlank()) {
+                            stringResource(R.string.search_prompt)
+                        } else {
+                            stringResource(R.string.search_no_result)
+                        },
+                        style = MaterialTheme.typography.labelMedium,
+                        color = colors.placeholder,
+                    )
+                }
             }
         } else {
             LazyColumn(
@@ -205,6 +221,7 @@ fun ConversationSearchPage(
                         onClick = {
                             focus.clearFocus()
                             keyboard?.hide()
+                            onRememberQuery()
                             onClick(hit)
                         },
                         onEnterSelection = {},
@@ -229,5 +246,67 @@ fun ConversationSearchPage(
         }
 
         Spacer(Modifier.navigationBarsPadding())
+    }
+}
+
+/**
+ * 空关键词时的「最近搜索」。
+ *
+ * 用一行横向滚动的标签而不是纵向列表：搜索页空着的时候，用户的注意力在
+ * 上方的输入框，历史只是"省一次打字"的快捷方式 —— 竖着排八行会把
+ * 屏幕占满，看着像另一个页面。
+ */
+@Composable
+private fun RecentSearches(
+    keywords: List<String>,
+    onClick: (String) -> Unit,
+    onClear: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalChatColors.current
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 8.dp),
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(start = 16.dp, end = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = stringResource(R.string.search_recent),
+                style = MaterialTheme.typography.labelMedium,
+                color = colors.placeholder,
+                modifier = Modifier.weight(1f),
+            )
+            TextButton(onClick = onClear) {
+                Text(
+                    text = stringResource(R.string.action_clear),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = colors.placeholder,
+                )
+            }
+        }
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            contentPadding = PaddingValues(horizontal = 16.dp),
+        ) {
+            items(items = keywords, key = { it }) { keyword ->
+                Text(
+                    text = keyword,
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurface,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier
+                        .clip(PillShape)
+                        .background(colors.fieldBackground)
+                        .clickable { onClick(keyword) }
+                        .padding(horizontal = 12.dp, vertical = 7.dp),
+                )
+            }
+        }
     }
 }

@@ -9,6 +9,7 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.lerp
@@ -164,12 +165,46 @@ val LocalChatColors = staticCompositionLocalOf { LightChatColors }
  * 它们原来是写死的淡蓝（`CapsuleSelectedLight` / `UserBubbleLight`），
  * 换成绿色主题后若还留着蓝，一眼就是"没换干净"。
  */
-private fun chatColors(dark: Boolean, accent: AccentColor): ChatColors {
-    val tint = tintOf(accent.primary(dark), dark)
-    return (if (dark) DarkChatColors else LightChatColors).copy(
-        userBubble = tint,
+private fun chatColors(
+    dark: Boolean,
+    accent: AccentColor,
+    custom: CustomColors,
+): ChatColors {
+    val tint = tintOf(custom.primary ?: accent.primary(dark), dark)
+    val base = if (dark) DarkChatColors else LightChatColors
+    return base.copy(
+        userBubble = custom.userBubble ?: tint,
         capsuleSelected = tint,
+        pageBackground = custom.pageBackground ?: base.pageBackground,
+        card = custom.card ?: base.card,
     )
+}
+
+/**
+ * 用户自定义的那几项颜色（设置 → 自定义配色）。
+ *
+ * 每一项都是 `null` 表示"跟随主题" —— 用可空而不是另建一套默认色板：
+ * 默认值本来就在 [LightChatColors] / [DarkChatColors] 与 [AccentColor] 里，
+ * 抄一份到这里，改一处忘一处就又出现"两套默认色不同步"。
+ *
+ * **不区分明暗**：用户选了什么就是什么。自动按明暗改色会把用户刚挑的颜色
+ * 悄悄改掉 —— 那就不叫自定义了。
+ */
+@Immutable
+data class CustomColors(
+    val primary: Color? = null,
+    val userBubble: Color? = null,
+    val pageBackground: Color? = null,
+    val card: Color? = null,
+    val text: Color? = null,
+) {
+    val isEmpty: Boolean
+        get() = primary == null && userBubble == null && pageBackground == null &&
+            card == null && text == null
+
+    companion object {
+        val NONE = CustomColors()
+    }
 }
 
 /**
@@ -196,19 +231,26 @@ val LocalIsDarkTheme = staticCompositionLocalOf { false }
  * 正文区永远是干净的近白 / 近黑，品牌色永远可辨认 —— 换的只是**色相**，
  * 而不是"跟着壁纸跑"。见 [AccentColor]。
  */
-private fun staticScheme(dark: Boolean, accent: AccentColor): ColorScheme {
-    val primary = accent.primary(dark)
+private fun staticScheme(
+    dark: Boolean,
+    accent: AccentColor,
+    custom: CustomColors,
+): ColorScheme {
+    val primary = custom.primary ?: accent.primary(dark)
     val tint = tintOf(primary, dark)
+    val pageBackground = custom.pageBackground ?: if (dark) PageBgDark else PageBgLight
+    val card = custom.card ?: if (dark) CardDark else CardLight
+    val onSurface = custom.text ?: if (dark) TextPrimaryDark else TextPrimaryLight
     return if (dark) {
         darkColorScheme(
             primary = primary,
             onPrimary = Color.White,
             primaryContainer = tint,
             onPrimaryContainer = primary,
-            background = PageBgDark,
-            onBackground = TextPrimaryDark,
-            surface = CardDark,
-            onSurface = TextPrimaryDark,
+            background = pageBackground,
+            onBackground = onSurface,
+            surface = card,
+            onSurface = onSurface,
             surfaceVariant = FieldBgDark,
             onSurfaceVariant = TextSecondaryDark,
             outline = OutlineDark,
@@ -222,10 +264,10 @@ private fun staticScheme(dark: Boolean, accent: AccentColor): ColorScheme {
             onPrimary = Color.White,
             primaryContainer = tint,
             onPrimaryContainer = primary,
-            background = PageBgLight,
-            onBackground = TextPrimaryLight,
-            surface = CardLight,
-            onSurface = TextPrimaryLight,
+            background = pageBackground,
+            onBackground = onSurface,
+            surface = card,
+            onSurface = onSurface,
             surfaceVariant = FieldBgLight,
             onSurfaceVariant = TextSecondaryLight,
             outline = OutlineLight,
@@ -251,6 +293,9 @@ fun SimpleChatTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     accent: AccentColor = AccentColor.BLUE,
     fontScale: Float = 1f,
+    custom: CustomColors = CustomColors.NONE,
+    lineHeightScale: Float = 1f,
+    bodyMonospace: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val dark = when (themeMode) {
@@ -259,13 +304,17 @@ fun SimpleChatTheme(
         ThemeMode.DARK -> true
     }
 
-    val scheme = staticScheme(dark, accent)
+    val scheme = staticScheme(dark, accent, custom)
+
+    val overrides = TextOverrides(lineHeightScale, bodyMonospace)
+    val typography = remember(overrides) { SimpleChatTypography.withReadingOverrides(overrides) }
 
     val baseDensity = LocalDensity.current
 
     CompositionLocalProvider(
-        LocalChatColors provides chatColors(dark, accent),
+        LocalChatColors provides chatColors(dark, accent, custom),
         LocalIsDarkTheme provides dark,
+        LocalTextOverrides provides overrides,
         LocalDensity provides Density(
             density = baseDensity.density,
             fontScale = baseDensity.fontScale * fontScale,
@@ -273,7 +322,7 @@ fun SimpleChatTheme(
     ) {
         MaterialTheme(
             colorScheme = scheme,
-            typography = SimpleChatTypography,
+            typography = typography,
             content = content,
         )
     }

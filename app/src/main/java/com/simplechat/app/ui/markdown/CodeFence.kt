@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -94,6 +95,8 @@ internal fun CodeFenceText(
      * 增量高亮。缓存对象活在 `remember` 里、只在主线程（组合期）改 ——
      * 与组合同线程，不需要任何同步。
      */
+    // 代码块是否自动换行（设置 → 输出与预览）。默认折行：手机屏幕窄
+    val wrap = LocalCodeWrap.current
     val dark = com.simplechat.app.ui.theme.LocalIsDarkTheme.current
     val highlighter = remember { IncrementalHighlight() }
     val highlighted = remember(shown, language, dark) { highlighter.of(shown, language, dark) }
@@ -162,15 +165,24 @@ internal fun CodeFenceText(
                 )
             }
             Box(
-                modifier = Modifier
-                    // 横滚优先于消息索引的左滑（§34.4）
-                    .preferHorizontalScroll()
-                    .horizontalScroll(rememberScrollState()),
+                modifier = if (wrap) {
+                    Modifier
+                } else {
+                    Modifier
+                        // 横滚优先于消息索引的左滑（§34.4）
+                        .preferHorizontalScroll()
+                        .horizontalScroll(rememberScrollState())
+                },
             ) {
                 MarkdownBasicText(
                     text = highlighted,
                     style = style,
-                    modifier = Modifier.requiredWidth(codeWidth).then(searchModifier),
+                    modifier = if (wrap) {
+                        // 折行时不钉宽度，让文字按可用宽度自己排
+                        Modifier.then(searchModifier)
+                    } else {
+                        Modifier.requiredWidth(codeWidth).then(searchModifier)
+                    },
                     onTextLayout = onSearchLayout,
                 )
             }
@@ -352,3 +364,11 @@ internal class IncrementalHighlight {
         )
     }
 }
+
+/**
+ * 代码块是否自动换行（设置 → 输出与预览 → 代码块自动换行）。
+ *
+ * 用 CompositionLocal 而不是参数：代码块是 Markdown 解析链最深处的一层，
+ * 一路加参数要穿过五六个函数，而它只有"折行 / 横滚"两种取值。
+ */
+val LocalCodeWrap = compositionLocalOf { true }

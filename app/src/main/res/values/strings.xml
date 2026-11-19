@@ -78,6 +78,7 @@
     <string name="error_network_timeout">连接超时，请稍后重试</string>
     <string name="error_network_interrupted">连接被中断（服务端或网络波动），请重试</string>
     <string name="error_network_insecure">安全连接失败，请检查网络环境或证书</string>
+    <string name="error_connect_refused">连不上服务器（连接被拒绝）：地址或端口不对，或服务没有启动</string>
     <string name="error_server_busy">服务端繁忙或临时故障，请稍后重试</string>
     <string name="error_http_status">服务端返回 HTTP %1$d</string>
     <string name="error_http_unauthorized">API Key 无效或已过期，请到设置里重新填写</string>
@@ -110,6 +111,9 @@
 
     <!-- ── 设置：一级页面 ───────────────────────────────── -->
     <string name="settings_title">设置</string>
+    <!-- 底部标签栏 -->
+    <string name="nav_chat">对话</string>
+    <string name="nav_settings">设置</string>
     <string name="settings_data">数据管理</string>
     <string name="settings_api">API 配置</string>
     <string name="settings_presets">预设</string>
@@ -127,8 +131,69 @@
     <string name="settings_appearance">外观</string>
     <string name="settings_accent">主题色</string>
     <string name="settings_auto_collapse">自动折叠思考内容</string>
+    <string name="value_on">开</string>
+    <string name="value_off">关</string>
     <string name="generation_channel">生成进度</string>
     <string name="generation_running_title">正在生成回复</string>
+    <string name="usage_tokens_total">用量 %1$s tokens</string>
+    <string name="usage_tokens_unrecorded">用量未记录</string>
+    <string name="usage_tokens_none">未记录</string>
+    <string name="usage_tokens_in">输入</string>
+    <string name="usage_tokens_out">输出</string>
+    <string name="settings_interaction">触感与交互</string>
+    <string name="settings_storage">存储与缓存</string>
+    <string name="settings_storage_summary">占用与清理</string>
+    <string name="settings_custom_theme">自定义配色</string>
+    <string name="settings_reading">阅读排版</string>
+    <string name="settings_custom_primary">主色</string>
+    <string name="settings_custom_bubble">我的气泡</string>
+    <string name="settings_custom_page_bg">页面底色</string>
+    <string name="settings_custom_card">卡片底色</string>
+    <string name="settings_custom_text">正文颜色</string>
+    <string name="settings_custom_follow">跟随主题</string>
+    <string name="settings_custom_count">已改 %1$d 项</string>
+    <string name="settings_custom_reset">重置</string>
+    <string name="settings_custom_reset_all">全部恢复默认</string>
+    <string name="settings_custom_note">同一组颜色同时用于浅色和深色外观；留空即跟随主题。</string>
+    <string name="settings_reading_line_height">行高</string>
+    <string name="settings_reading_monospace">正文等宽</string>
+    <string name="settings_reading_monospace_hint">正文换成等宽字体；代码块本来就是等宽。</string>
+    <string name="settings_reading_preview">预览</string>
+    <string name="settings_reading_preview_text">把字号交给字号设置，把行距和字形交在这里。</string>
+    <string name="color_picker_hue">色相</string>
+    <string name="color_picker_saturation">饱和度</string>
+    <string name="color_picker_brightness">明度</string>
+    <string name="search_recent">最近搜索</string>
+    <string name="settings_clear_search_history">清空搜索历史</string>
+    <string name="settings_clear_search_history_summary">只删关键词，会话本身不受影响</string>
+    <string name="settings_clear_search_history_done">搜索历史已清空</string>
+    <string name="settings_group_other">其他</string>
+    <string name="value_custom">自定义</string>
+    <string name="settings_haptic_group">触感反馈</string>
+    <string name="settings_input_group">输入</string>
+    <string name="haptic_send">发送消息时震动</string>
+    <string name="haptic_send_hint">点发送按钮的那一下</string>
+    <string name="haptic_long_press">长按输入框时震动</string>
+    <string name="haptic_long_press_hint">长按空输入框打开对话设置</string>
+    <string name="haptic_delete">删除会话时震动</string>
+    <string name="haptic_delete_hint">确认删除会话的那一下</string>
+    <string name="haptic_send_enter">回车直接发送</string>
+    <string name="haptic_send_enter_hint">输入法回车键直接发出，不再换行</string>
+    <string name="settings_haptic_note">需要系统设置里的触感反馈开着；关掉系统开关后这里不会有反应。</string>
+    <string name="settings_storage_group">占用</string>
+    <string name="settings_storage_clean_group">可清理</string>
+    <string name="storage_db">数据库</string>
+    <string name="storage_attachments">附件（在用）</string>
+    <string name="storage_orphans">残留文件</string>
+    <string name="storage_orphan_count">%1$d 个文件没人引用</string>
+    <string name="storage_cache">临时缓存</string>
+    <string name="storage_clean_hint">只清没人引用的附件与缓存，聊天记录不动</string>
+    <string name="storage_clear">清理</string>
+    <string name="storage_clearing">清理中…</string>
+    <string name="storage_clear_title">清理存储？</string>
+    <string name="storage_clear_body">会删掉没人引用的附件文件和临时缓存。聊天记录、仍在使用的图片都不受影响。</string>
+    <string name="storage_clear_confirm">清理</string>
+    <string name="storage_clear_done">已释放 %1$s</string>
     <string name="settings_about_title">关于 SimpleChat</string>
     <string name="settings_export_all">导出所有数据</string>
     <string name="settings_export_all_summary">导出会话、消息与全部版本</string>
@@ -145,8 +210,12 @@
     <string name="api_test">测试连接</string>
     <string name="api_testing">正在测试…</string>
     <string name="api_key_unset">未配置</string>
+    <string name="api_key_optional">无需</string>
+    <string name="api_local_hint">本地服务一般不需要 API Key。地址填模型服务的 OpenAI 兼容入口即可，例如 Ollama 是 http://127.0.0.1:11434/v1（跑在电脑或 NAS 上就换成那台机器的局域网地址）。</string>
     <string name="api_test_ok">连接成功，可用模型 %1$d 个</string>
     <string name="api_test_failed">连接失败：%1$s</string>
+    <string name="api_hint_missing_v1">（本地地址可能少了 /v1）</string>
+    <string name="api_hint_local_unreachable">；请确认服务已启动、端口正确，且手机与它在同一网络</string>
     <string name="api_model_unset">未选择</string>
     <string name="api_model_empty_hint">还没有模型列表。先点「测试连接」拉取这个端点的模型，也可以手动填写。</string>
     <string name="api_model_manual">手动填写模型</string>
@@ -291,6 +360,7 @@
     <string name="provider_name_deepseek">DeepSeek 官方</string>
     <string name="provider_name_opencode">OpenCode Go</string>
     <string name="provider_name_custom">自定义</string>
+    <string name="provider_name_local">本地</string>
 
     <!-- ── 会话模式 / 思考档位 ──────────────────────────── -->
     <string name="mode_creative_title">创作模式</string>
@@ -437,10 +507,13 @@
     <string name="input_param_temperature">温度 temperature</string>
     <string name="input_param_temp_disabled">思考模式下由服务端接管，不生效</string>
     <string name="input_param_top_p_disabled">仅思考模式生效</string>
+    <string name="input_param_max_tokens">最大输出 tokens</string>
+    <string name="input_param_max_tokens_unlimited">不限制</string>
     <string name="input_export_title">导出当前对话</string>
-    <string name="input_export_hint">Markdown 文稿 · 或 JSON 备份</string>
+    <string name="input_export_hint">Markdown · 纯文本 · JSON 备份</string>
     <string name="input_export">导出</string>
     <string name="input_export_markdown">Markdown 文稿</string>
+    <string name="input_export_text">纯文本 (.txt)</string>
     <string name="input_export_json">JSON 备份</string>
 
     <!-- ==== 来自 g3 组 ==== -->
@@ -602,6 +675,142 @@
     <string name="search_role_assistant">AI 回复</string>
     <string name="search_title_match">标题匹配</string>
     <string name="search_load_more">加载更多结果</string>
+    <string name="settings_group_features">功能与行为</string>
+    <string name="settings_behavior">AI 行为</string>
+    <string name="settings_output">输出与预览</string>
+    <string name="settings_tools">工具</string>
+    <string name="settings_stats">统计</string>
+    <string name="settings_memory">记忆</string>
+    <string name="settings_logs">错误日志</string>
+    <string name="settings_keepalive">后台保护</string>
+    <string name="settings_security">安全</string>
+    <string name="behavior_group_tone">语气</string>
+    <string name="behavior_tone">说话语气</string>
+    <string name="behavior_tone_chat">闲聊</string>
+    <string name="behavior_tone_coding">严谨</string>
+    <string name="behavior_tone_hint">语气只影响系统提示词末尾的一段，不改模型本身。闲聊更松弛，严谨更少跑题、少寒暄。</string>
+    <string name="behavior_group_thinking">思考显示</string>
+    <string name="behavior_thinking_scroll">生成时跟随滚动</string>
+    <string name="behavior_thinking_scroll_hint">关掉后视图停在原位，方便边生成边往回看。</string>
+    <string name="behavior_step_thinking">分步思考</string>
+    <string name="behavior_step_thinking_hint">要求模型先列步骤再作答。复杂问题更稳，简单问题会变啰嗦。</string>
+    <string name="behavior_preserve_reasoning">保留思考内容</string>
+    <string name="behavior_preserve_reasoning_hint">把上一轮的思考回传给服务商。部分模型多轮时依赖它，回传会多花一点输入 tokens。</string>
+    <string name="behavior_group_mode">模式</string>
+    <string name="behavior_learning">学习模式</string>
+    <string name="behavior_learning_hint">回答里附带解释与延伸。慢一点，但更适合学新东西。</string>
+    <string name="behavior_soft_compaction">自动压缩上下文</string>
+    <string name="behavior_soft_compaction_hint">接近窗口上限时先自动摘要，而不是等报错再压。</string>
+    <string name="behavior_minimal">极简模式</string>
+    <string name="behavior_minimal_hint">只留正文，藏掉头像、时间戳与操作栏。</string>
+    <string name="output_group_code">代码</string>
+    <string name="output_code_wrap">代码块自动换行</string>
+    <string name="output_code_wrap_hint">关掉则横向滚动。手机屏幕窄，长行不折就得左右拖。</string>
+    <string name="output_group_process">思考过程</string>
+    <string name="output_process_expand">过程块默认展开</string>
+    <string name="output_process_expand_hint">工具调用与过程说明默认展开显示。</string>
+    <string name="output_thinking_collapse">思考默认折叠</string>
+    <string name="output_thinking_collapse_hint">关掉则思考内容默认展开，需要时手动收起。</string>
+    <string name="output_group_link">链接</string>
+    <string name="output_browser_mode">打开方式</string>
+    <string name="output_browser_builtin">内置浏览器</string>
+    <string name="output_browser_external">系统浏览器</string>
+    <string name="output_browser_hint">内置浏览器留在 App 里，不打断对话；系统浏览器功能更全。</string>
+    <string name="tools_group_search">联网搜索</string>
+    <string name="tools_search_provider">搜索服务商</string>
+    <string name="tools_search_official">服务商自带</string>
+    <string name="tools_search_bing">必应（免费）</string>
+    <string name="tools_search_hint">服务商自带需要官方端点与对应 Key；必应走公开 RSS，免费但结果条数少。</string>
+    <string name="tools_group_vision">图像理解</string>
+    <string name="tools_image_model">图像理解模型</string>
+    <string name="tools_image_model_unset">跟随当前模型</string>
+    <string name="tools_image_model_hint">留空则用当前对话模型看图；填一个专门的视觉模型 id，可让主模型专心写作。</string>
+    <string name="stats_loading">正在统计…</string>
+    <string name="stats_empty">还没有可统计的用量。等几条回复记录下 token 数之后再来。</string>
+    <string name="stats_group_summary">汇总</string>
+    <string name="stats_requests">请求数</string>
+    <string name="stats_input">输入 tokens</string>
+    <string name="stats_output">输出 tokens</string>
+    <string name="stats_total">合计</string>
+    <string name="stats_group_models">按模型</string>
+    <string name="stats_model_line">%1$d 次请求 · 输入 %2$s · 输出 %3$s</string>
+    <string name="stats_note">只统计记录过 token 数的回复。老消息没有这一列，不计入。</string>
+    <string name="memory_group">长期记忆</string>
+    <string name="memory_empty">还没有记忆。</string>
+    <string name="memory_add">新增一条</string>
+    <string name="memory_edit">编辑记忆</string>
+    <string name="memory_placeholder">比如：我习惯用 Kotlin，回答尽量给可运行代码</string>
+    <string name="memory_delete_title">删除</string>
+    <string name="memory_hint">记忆条目会随每次请求发给模型。写得越具体越有用，写太多会挤占上下文。</string>
+    <string name="logs_group">最近错误</string>
+    <string name="logs_empty">没有错误记录。</string>
+    <string name="logs_refresh">刷新</string>
+    <string name="logs_clear">清空</string>
+    <string name="logs_note">只记错误摘要（类型、消息、出错位置），不记对话内容与 API Key。</string>
+    <string name="keepalive_group_service">前台服务</string>
+    <string name="keepalive_foreground">生成时保持前台服务</string>
+    <string name="keepalive_foreground_hint">挂着通知，锁屏或切走后进程不容易被杀。关掉就只在 App 内生成。</string>
+    <string name="keepalive_wakelock">锁屏继续运行</string>
+    <string name="keepalive_wakelock_hint">生成期间持有 WakeLock。更稳，但更费电。</string>
+    <string name="keepalive_group_system">系统</string>
+    <string name="keepalive_battery">忽略电池优化</string>
+    <string name="keepalive_battery_hint">打开会跳到系统页面，需要你手动把 Simple-Chat 设为不优化。</string>
+    <string name="keepalive_audio">音频保活</string>
+    <string name="keepalive_audio_hint">静音播放一段音频。部分系统对音频进程更宽容，代价是多一个媒体会话。</string>
+    <string name="keepalive_note">这几项都只能降低被系统回收的概率，没有任何 App 能保证后台一定不被杀。</string>
+    <string name="security_group_lock">应用锁</string>
+    <string name="security_app_lock">应用锁</string>
+    <string name="security_app_lock_hint">打开 App 或从后台回来时，先验证设备密码 / 指纹。</string>
+    <string name="security_secure_screen">禁止截屏</string>
+    <string name="security_secure_screen_hint">同时挡住多任务预览里的缩略图。</string>
+    <string name="security_group_network">网络</string>
+    <string name="security_allow_http">允许明文 HTTP</string>
+    <string name="security_allow_http_hint">本地或局域网模型常用 http。关掉之后只允许 https 端点。</string>
+    <string name="security_note">应用锁用的是系统验证界面，Simple-Chat 不接触也不存储你的密码。</string>
+    <string name="lock_title">已锁定</string>
+    <string name="lock_subtitle">验证设备密码后继续</string>
+    <string name="lock_unlock">解锁</string>
+    <string name="lock_cancelled">验证没有完成</string>
+    <string name="compact_auto_done">上下文接近上限，已自动压缩</string>
+    <string name="error_http_blocked">明文 HTTP 已关闭：这个地址不是本机或局域网。请在「设置 → 安全」里允许明文 HTTP，或改用 https</string>
+    <!-- 通知栏动作 -->
+    <string name="notification_channel_done">回复已生成</string>
+    <string name="notification_action_reply">回复</string>
+    <string name="notification_reply_hint">接着说…</string>
+    <string name="notification_action_continue">继续生成</string>
+
+    <!-- 工具调用 -->
+    <string name="error_tool_failed">工具调用失败</string>
+
+    <!-- 收藏 -->
+    <string name="settings_favorites">收藏夹</string>
+    <string name="settings_favorites_summary">消息与会话</string>
+    <string name="favorites_group_messages">收藏的消息</string>
+    <string name="favorites_group_conversations">收藏的会话</string>
+    <string name="favorite_add">收藏</string>
+    <string name="favorite_remove">取消收藏</string>
+    <string name="favorites_empty">还没有收藏。长按一条消息，或在抽屉里长按会话。</string>
+
+    <!-- 快捷指令 -->
+    <string name="settings_slash_commands">快捷指令</string>
+    <string name="settings_slash_commands_summary">输入 / 调用</string>
+    <string name="slash_group">指令列表</string>
+    <string name="slash_hint">在输入框打 / 选择指令，内容会直接填进输入框</string>
+    <string name="slash_empty">还没有指令。加一条，比如「翻译」。</string>
+    <string name="slash_add">新增指令</string>
+    <string name="slash_name">名称</string>
+    <string name="slash_text">内容</string>
+    <string name="slash_delete_title">删除指令</string>
+    <string name="slash_delete_body">「%1$s」将从列表里移除。</string>
+    <string name="slash_panel_title">快捷指令</string>
+
+    <!-- 会话状态 -->
+    <string name="conversation_status_generating">正在生成</string>
+    <string name="conversation_status_done">有新回复</string>
+    <string name="conversation_status_failed">上次生成失败</string>
+
+    <!-- 长图分享 -->
+    <string name="action_share_image">分享长图</string>
+    <string name="share_image_failed">生成长图失败</string>
+    <string name="share_image_chooser">分享这段对话</string>
 </resources>
-
-

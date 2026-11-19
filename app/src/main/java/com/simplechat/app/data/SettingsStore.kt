@@ -1,6 +1,8 @@
 package com.simplechat.app.data
 
 import android.content.Context
+import androidx.annotation.StringRes
+import com.simplechat.app.R
 import com.simplechat.app.net.ApiStyle
 import com.simplechat.app.net.ProviderKind
 import androidx.datastore.core.DataStore
@@ -11,6 +13,7 @@ import androidx.datastore.preferences.core.edit
 import androidx.datastore.preferences.core.floatPreferencesKey
 import androidx.datastore.preferences.core.intPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -91,6 +94,100 @@ data class StoredSettings(
     val followSystemFont: Boolean = true,
     /** 思考内容是否自动折叠（关闭则默认展开，需手动收起）。 */
     val autoCollapseThinking: Boolean = true,
+    /**
+     * 回车直接发送。
+     *
+     * 默认 false —— 手机输入法上回车键本来就常被用来换行，聊天框里换行也很常见；
+     * 想"打完就发"的人自己开。
+     */
+    val sendOnEnter: Boolean = false,
+    /**
+     * 正文字号之外的**行高**倍率（1 = 默认）。
+     *
+     * 与 [fontScale] 分开：字号是"看得清"，行高是"读得松"。长文阅读时把行高
+     * 拉到 1.3 比把字号放大一档更舒服，而两者的取值理由完全不同。
+     */
+    val lineHeightScale: Float = 1f,
+    /** 正文用等宽字体（代码块本来就是等宽，这里只管正文）。 */
+    val bodyMonospace: Boolean = false,
+    /**
+     * 生成时挂一条通知（前台服务）。
+     *
+     * 关掉之后生成仍在进行，只是不再起前台服务：进程被杀就停。
+     * 这是"不想在通知栏看到它"和"锁屏后也一定写完"之间的取舍，交给用户。
+     */
+    val generationNotification: Boolean = true,
+    /** 应用锁：打开 App 或从后台回来时先验证设备密码 / 指纹。 */
+    val appLock: Boolean = false,
+    /** 禁止截屏与多任务预览（`FLAG_SECURE`）。 */
+    val secureScreen: Boolean = false,
+
+    /*
+     * ── AI 行为 ──────────────────────────────────────────────
+     * 对应 LineCode 的 BehaviorSettingsPage。这里放的是"怎么想、怎么显示"，
+     * 与服务商无关；推理强度本身仍跟着 API 配置走（见 ApiProfile.reasoningLevelId）。
+     */
+    /** 语气：`CHAT`（闲聊，松弛）/ `CODING`（严谨，默认）。 */
+    val toneId: String = "CHAT",
+    /** 生成时视图跟随最新内容（关掉则停在原位，方便边看边往回翻）。 */
+    val thinkingScroll: Boolean = true,
+    /** 分步思考：要求模型先列步骤再作答。 */
+    val stepThinking: Boolean = false,
+    /** 把上一轮的 reasoning 回传给服务商 —— 部分模型多轮时依赖它。 */
+    val preserveReasoning: Boolean = false,
+    /** 学习模式：回答附带解释与延伸，慢一点但更适合学新东西。 */
+    val learningMode: Boolean = false,
+    /** 软压缩：接近窗口上限时先自动摘要，而不是等报错再压。 */
+    val softCompaction: Boolean = true,
+    /** 极简模式：只留正文，藏掉头像、时间戳与操作栏。 */
+    val minimalMode: Boolean = false,
+
+    /* ── 输出与预览 ── */
+    /** 代码块自动换行（关掉则横向滚动）。 */
+    val codeWrap: Boolean = true,
+    /** 思考 / 过程块默认展开。 */
+    val processAutoExpand: Boolean = false,
+    /** 链接打开方式：`BUILTIN`（内置浏览器）/ `EXTERNAL`（系统浏览器）。 */
+    val browserModeId: String = "EXTERNAL",
+
+    /* ── 工具 ── */
+    /** 联网搜索服务商：`OFFICIAL`（服务商自带）/ `BING_RSS`（免费必应）。 */
+    val searchProviderId: String = "OFFICIAL",
+    /** 图像理解用的模型 id（空 = 用当前对话模型）。 */
+    val imageModelId: String = "",
+
+    /* ── 后台保护 ── */
+    /** 生成时持有 WakeLock，锁屏后继续跑。 */
+    val keepAliveWakeLock: Boolean = false,
+    /** 引导把 App 加进电池优化白名单。 */
+    val keepAliveIgnoreBattery: Boolean = false,
+    /** 静音播放一段音频保活（部分 ROM 对音频进程更宽容）。 */
+    val keepAliveFakeAudio: Boolean = false,
+
+    /* ── 安全 ── */
+    /** 允许非本机的明文 HTTP 端点。 */
+    val allowAnyHttp: Boolean = true,
+    /*
+     * 自定义配色（ARGB 整数；null = 跟随主题色 / 默认色板）。
+     *
+     * 逐项而不是"整套配色方案"：用户常常只想改一个气泡色，其余保持默认。
+     * 存 int 而不是十六进制字符串 —— `Color.value` 本来就是 32 位，
+     * 存字符串还要自己解析、还要处理 `#` 有没有写。
+     *
+     * 注意这些颜色**不区分明暗**：用户选了什么就是什么，深色模式下也照用。
+     * 自动按明暗改色会把用户刚选的颜色改掉，那就不叫自定义了。
+     */
+    val customPrimary: Int? = null,
+    val customUserBubble: Int? = null,
+    val customPageBackground: Int? = null,
+    val customCard: Int? = null,
+    val customText: Int? = null,
+    /** 发送消息时轻震一下。 */
+    val hapticSend: Boolean = true,
+    /** 长按输入框打开对话设置面板时轻震。 */
+    val hapticLongPress: Boolean = true,
+    /** 左滑删除会话、确认删除时轻震。 */
+    val hapticSwipeDelete: Boolean = true,
     /** 新对话默认模式：CREATIVE / ROLEPLAY。 */
     val defaultModeId: String = "CREATIVE",
     /** 界面语言：AppLanguage 的枚举名，见 data/LocaleHelper.kt。 */
@@ -160,6 +257,89 @@ data class StoredSettings(
 }
 
 /**
+ * 「最近搜索」的持久化格式（换行分隔，最新的在前）。
+ *
+ * 与 [ModelIdList] 同一种思路：只有几条短字符串，换行在关键词里不可能出现
+ * （输入框是多行的，但真正的换行会被 [SettingsStore.addRecentSearch] 之前
+ * 的 `trim` 之外的步骤处理不到 —— 所以编码时把换行替换成空格）。
+ */
+internal object RecentSearches {
+
+    fun encode(items: List<String>): String = items
+        .map { it.replace('\n', ' ').trim() }
+        .filter { it.isNotEmpty() }
+        .joinToString("\n")
+
+    fun decode(raw: String?): List<String> = raw
+        ?.lineSequence()
+        ?.map { it.trim() }
+        ?.filter { it.isNotEmpty() }
+        ?.toList()
+        .orEmpty()
+}
+
+/**
+ * 一条长期记忆。
+ *
+ * 存成 `id\ttimestamp\t正文` 的文本行（[MemoryCodec]），不建表：
+ * 记忆条目通常几十条，改一次要写整份也无所谓，而建表就得升 schema、
+ * 写迁移、处理老备份 —— 为了几十行字不值当。
+ */
+data class MemoryEntry(
+    val id: String,
+    val text: String,
+    val createdAt: Long,
+)
+
+internal object MemoryCodec {
+
+    fun encode(items: List<MemoryEntry>): String = items
+        .filter { it.text.isNotBlank() }
+        .joinToString("\n") { "${it.id}\t${it.createdAt}\t${it.text.replace('\n', ' ')}" }
+
+    fun decode(raw: String?): List<MemoryEntry> = raw
+        ?.lineSequence()
+        ?.mapNotNull { line ->
+            val parts = line.split('\t', limit = 3)
+            if (parts.size < 3) return@mapNotNull null
+            val text = parts[2].trim()
+            if (text.isEmpty()) null else MemoryEntry(parts[0], text, parts[1].toLongOrNull() ?: 0L)
+        }
+        ?.toList()
+        .orEmpty()
+}
+
+/** 一条 `/` 快捷指令：[name] 是打斜杠后看到的短名，[text] 是真正发出去的内容。 */
+data class SlashCommand(val name: String, val text: String)
+
+/**
+ * 快捷指令的存盘格式：一条一行，`名字\t内容`。
+ *
+ * 与 [MemoryCodec] 同思路 —— 换行和制表符会破坏分隔，存之前统一替换成空格。
+ */
+internal object SlashCommandCodec {
+
+    fun encode(commands: List<SlashCommand>): String =
+        commands.joinToString("\n") { "${oneLine(it.name)}\t${oneLine(it.text)}" }
+
+    fun decode(raw: String?): List<SlashCommand> {
+        if (raw.isNullOrEmpty()) return emptyList()
+        return raw.lineSequence()
+            .mapNotNull { line ->
+                if (line.isBlank()) return@mapNotNull null
+                val tab = line.indexOf('\t')
+                if (tab <= 0) return@mapNotNull null
+                val name = line.substring(0, tab).trim()
+                val text = line.substring(tab + 1).trim()
+                if (name.isEmpty() || text.isEmpty()) null else SlashCommand(name, text)
+            }
+            .toList()
+    }
+
+    private fun oneLine(value: String) = value.replace('\n', ' ').replace('\t', ' ').trim()
+}
+
+/**
  * 配置存储（DataStore Preferences）。
  *
  * **API Key 不落明文**：加解密走 [SecretBox]（Android Keystore 里的
@@ -172,8 +352,18 @@ class SettingsStore(
     private val preferences: DataStore<Preferences> = context.settingsDataStore,
 ) {
 
+    /**
+     * 最近一次读到的设置。
+     *
+     * 给 Activity 生命周期（`onStop`）这种**没有协程、也不该等 IO** 的地方用：
+     * 判断"退到后台要不要上锁"不能等一次 DataStore 读取完成。
+     */
+    @Volatile
+    var lastKnown: StoredSettings? = null
+        private set
+
     val flow: Flow<StoredSettings> = preferences.data.map { prefs ->
-        StoredSettings(
+        val value = StoredSettings(
             providerId = prefs[Keys.PROVIDER] ?: StoredSettings().providerId,
             baseUrl = prefs[Keys.BASE_URL] ?: StoredSettings().baseUrl,
             modelId = prefs[Keys.MODEL] ?: StoredSettings().modelId,
@@ -193,6 +383,43 @@ class SettingsStore(
                 ?: StoredSettings().followSystemFont,
             autoCollapseThinking = prefs[Keys.AUTO_COLLAPSE_THINKING]
                 ?: StoredSettings().autoCollapseThinking,
+            hapticSend = prefs[Keys.HAPTIC_SEND] ?: StoredSettings().hapticSend,
+            hapticLongPress = prefs[Keys.HAPTIC_LONG_PRESS] ?: StoredSettings().hapticLongPress,
+            hapticSwipeDelete = prefs[Keys.HAPTIC_SWIPE_DELETE]
+                ?: StoredSettings().hapticSwipeDelete,
+            sendOnEnter = prefs[Keys.SEND_ON_ENTER] ?: StoredSettings().sendOnEnter,
+            lineHeightScale = prefs[Keys.LINE_HEIGHT] ?: StoredSettings().lineHeightScale,
+            bodyMonospace = prefs[Keys.BODY_MONOSPACE] ?: StoredSettings().bodyMonospace,
+            toneId = prefs[Keys.TONE] ?: StoredSettings().toneId,
+            thinkingScroll = prefs[Keys.THINKING_SCROLL] ?: StoredSettings().thinkingScroll,
+            stepThinking = prefs[Keys.STEP_THINKING] ?: StoredSettings().stepThinking,
+            preserveReasoning = prefs[Keys.PRESERVE_REASONING]
+                ?: StoredSettings().preserveReasoning,
+            learningMode = prefs[Keys.LEARNING_MODE] ?: StoredSettings().learningMode,
+            softCompaction = prefs[Keys.SOFT_COMPACTION] ?: StoredSettings().softCompaction,
+            minimalMode = prefs[Keys.MINIMAL_MODE] ?: StoredSettings().minimalMode,
+            codeWrap = prefs[Keys.CODE_WRAP] ?: StoredSettings().codeWrap,
+            processAutoExpand = prefs[Keys.PROCESS_AUTO_EXPAND]
+                ?: StoredSettings().processAutoExpand,
+            browserModeId = prefs[Keys.BROWSER_MODE] ?: StoredSettings().browserModeId,
+            searchProviderId = prefs[Keys.SEARCH_PROVIDER] ?: StoredSettings().searchProviderId,
+            imageModelId = prefs[Keys.IMAGE_MODEL] ?: StoredSettings().imageModelId,
+            keepAliveWakeLock = prefs[Keys.KEEP_ALIVE_WAKELOCK]
+                ?: StoredSettings().keepAliveWakeLock,
+            keepAliveIgnoreBattery = prefs[Keys.KEEP_ALIVE_BATTERY]
+                ?: StoredSettings().keepAliveIgnoreBattery,
+            keepAliveFakeAudio = prefs[Keys.KEEP_ALIVE_AUDIO]
+                ?: StoredSettings().keepAliveFakeAudio,
+            allowAnyHttp = prefs[Keys.ALLOW_ANY_HTTP] ?: StoredSettings().allowAnyHttp,
+            generationNotification = prefs[Keys.GENERATION_NOTIFICATION]
+                ?: StoredSettings().generationNotification,
+            appLock = prefs[Keys.APP_LOCK] ?: StoredSettings().appLock,
+            secureScreen = prefs[Keys.SECURE_SCREEN] ?: StoredSettings().secureScreen,
+            customPrimary = prefs[Keys.CUSTOM_PRIMARY],
+            customUserBubble = prefs[Keys.CUSTOM_USER_BUBBLE],
+            customPageBackground = prefs[Keys.CUSTOM_PAGE_BG],
+            customCard = prefs[Keys.CUSTOM_CARD],
+            customText = prefs[Keys.CUSTOM_TEXT],
             defaultModeId = prefs[Keys.DEFAULT_MODE] ?: StoredSettings().defaultModeId,
             languageId = prefs[LANGUAGE_KEY] ?: StoredSettings().languageId,
             apiStyleId = prefs[Keys.API_STYLE] ?: StoredSettings().apiStyleId,
@@ -203,6 +430,8 @@ class SettingsStore(
             modelIds = ModelIdList.decode(prefs[Keys.MODEL_IDS]),
 
         )
+        lastKnown = value
+        value
     }
 
     suspend fun setProvider(providerId: String, baseUrl: String, modelId: String) {
@@ -313,6 +542,263 @@ class SettingsStore(
 
     suspend fun setAutoCollapseThinking(enabled: Boolean) {
         preferences.edit { it[Keys.AUTO_COLLAPSE_THINKING] = enabled }
+    }
+
+    /**
+     * 触感反馈：三个动作各一个开关。
+     *
+     * 拆成三项而不是一个总开关 —— 有人只讨厌滑删时的震动（像误操作提示），
+     * 但发送时的那一下很受用。合成一个开关只会逼人全关。
+     */
+    suspend fun setHapticSend(enabled: Boolean) {
+        preferences.edit { it[Keys.HAPTIC_SEND] = enabled }
+    }
+
+    suspend fun setHapticLongPress(enabled: Boolean) {
+        preferences.edit { it[Keys.HAPTIC_LONG_PRESS] = enabled }
+    }
+
+    suspend fun setHapticSwipeDelete(enabled: Boolean) {
+        preferences.edit { it[Keys.HAPTIC_SWIPE_DELETE] = enabled }
+    }
+
+    suspend fun setSendOnEnter(enabled: Boolean) {
+        preferences.edit { it[Keys.SEND_ON_ENTER] = enabled }
+    }
+
+    suspend fun setGenerationNotification(enabled: Boolean) {
+        preferences.edit { it[Keys.GENERATION_NOTIFICATION] = enabled }
+    }
+
+    suspend fun setAppLock(enabled: Boolean) {
+        preferences.edit { it[Keys.APP_LOCK] = enabled }
+    }
+
+    suspend fun setSecureScreen(enabled: Boolean) {
+        preferences.edit { it[Keys.SECURE_SCREEN] = enabled }
+    }
+
+    /** 行高倍率夹到 [MIN_LINE_HEIGHT]..[MAX_LINE_HEIGHT]：滑块的边界在 UI 上，这里再兜一次。 */
+    suspend fun setLineHeightScale(scale: Float) {
+        preferences.edit { it[Keys.LINE_HEIGHT] = scale.coerceIn(MIN_LINE_HEIGHT, MAX_LINE_HEIGHT) }
+    }
+
+    suspend fun setBodyMonospace(enabled: Boolean) {
+        preferences.edit { it[Keys.BODY_MONOSPACE] = enabled }
+    }
+
+    suspend fun setTone(toneId: String) {
+        preferences.edit { it[Keys.TONE] = toneId }
+    }
+
+    suspend fun setThinkingScroll(enabled: Boolean) {
+        preferences.edit { it[Keys.THINKING_SCROLL] = enabled }
+    }
+
+    suspend fun setStepThinking(enabled: Boolean) {
+        preferences.edit { it[Keys.STEP_THINKING] = enabled }
+    }
+
+    suspend fun setPreserveReasoning(enabled: Boolean) {
+        preferences.edit { it[Keys.PRESERVE_REASONING] = enabled }
+    }
+
+    suspend fun setLearningMode(enabled: Boolean) {
+        preferences.edit { it[Keys.LEARNING_MODE] = enabled }
+    }
+
+    suspend fun setSoftCompaction(enabled: Boolean) {
+        preferences.edit { it[Keys.SOFT_COMPACTION] = enabled }
+    }
+
+    suspend fun setMinimalMode(enabled: Boolean) {
+        preferences.edit { it[Keys.MINIMAL_MODE] = enabled }
+    }
+
+    suspend fun setCodeWrap(enabled: Boolean) {
+        preferences.edit { it[Keys.CODE_WRAP] = enabled }
+    }
+
+    suspend fun setProcessAutoExpand(enabled: Boolean) {
+        preferences.edit { it[Keys.PROCESS_AUTO_EXPAND] = enabled }
+    }
+
+    suspend fun setBrowserMode(modeId: String) {
+        preferences.edit { it[Keys.BROWSER_MODE] = modeId }
+    }
+
+    suspend fun setSearchProvider(providerId: String) {
+        preferences.edit { it[Keys.SEARCH_PROVIDER] = providerId }
+    }
+
+    suspend fun setImageModel(modelId: String) {
+        preferences.edit { it[Keys.IMAGE_MODEL] = modelId.trim() }
+    }
+
+    suspend fun setKeepAliveWakeLock(enabled: Boolean) {
+        preferences.edit { it[Keys.KEEP_ALIVE_WAKELOCK] = enabled }
+    }
+
+    suspend fun setKeepAliveIgnoreBattery(enabled: Boolean) {
+        preferences.edit { it[Keys.KEEP_ALIVE_BATTERY] = enabled }
+    }
+
+    suspend fun setKeepAliveFakeAudio(enabled: Boolean) {
+        preferences.edit { it[Keys.KEEP_ALIVE_AUDIO] = enabled }
+    }
+
+    suspend fun setAllowAnyHttp(enabled: Boolean) {
+        preferences.edit { it[Keys.ALLOW_ANY_HTTP] = enabled }
+    }
+
+    /**
+     * 设置 / 清除一项自定义配色。
+     *
+     * [color] 传 null 就是"这一项回到跟随主题"，所以一个方法覆盖设置与重置两种操作。
+     */
+    suspend fun setCustomColor(slot: CustomColorSlot, color: Int?) {
+        preferences.edit { prefs ->
+            if (color == null) prefs.remove(slot.key) else prefs[slot.key] = color
+        }
+    }
+
+    /** 五项一起恢复默认。 */
+    suspend fun resetCustomColors() {
+        preferences.edit { prefs -> CustomColorSlot.entries.forEach { prefs.remove(it.key) } }
+    }
+
+    // ── 最近搜索 ──────────────────────────────────────────
+
+    /**
+     * 最近搜过的关键词，最新的在前。
+     *
+     * 存 DataStore 而不是数据库：它只有几条字符串、读写都很轻，
+     * 为它建一张表要连带 schema 版本和迁移。
+     */
+    val recentSearches: Flow<List<String>> =
+        preferences.data.map { RecentSearches.decode(it[Keys.RECENT_SEARCHES]) }
+
+    /**
+     * 记一条搜索。
+     *
+     * 去重时按**原样**比较（区分大小写）：用户搜 "Kotlin" 和 "kotlin"
+     * 得到的结果可能不同，把它们合并成一条反而丢信息。
+     */
+    suspend fun addRecentSearch(keyword: String) {
+        val cleaned = keyword.trim()
+        if (cleaned.isEmpty()) return
+        preferences.edit { prefs ->
+            val current = RecentSearches.decode(prefs[Keys.RECENT_SEARCHES])
+            val next = (listOf(cleaned) + current.filterNot { it == cleaned })
+                .take(MAX_RECENT_SEARCHES)
+            prefs[Keys.RECENT_SEARCHES] = RecentSearches.encode(next)
+        }
+    }
+
+    suspend fun clearRecentSearches() {
+        preferences.edit { it.remove(Keys.RECENT_SEARCHES) }
+    }
+
+    /** 长期记忆：最新的在前。 */
+    val memories: Flow<List<MemoryEntry>> =
+        preferences.data.map { MemoryCodec.decode(it[Keys.MEMORIES]) }
+
+    suspend fun addMemory(text: String) {
+        val cleaned = text.trim()
+        if (cleaned.isEmpty()) return
+        val entry = MemoryEntry(
+            id = java.util.UUID.randomUUID().toString(),
+            text = cleaned,
+            createdAt = System.currentTimeMillis(),
+        )
+        preferences.edit { prefs ->
+            val current = MemoryCodec.decode(prefs[Keys.MEMORIES])
+            prefs[Keys.MEMORIES] = MemoryCodec.encode(listOf(entry) + current)
+        }
+    }
+
+    suspend fun updateMemory(id: String, text: String) {
+        val cleaned = text.trim()
+        if (cleaned.isEmpty()) return
+        preferences.edit { prefs ->
+            val current = MemoryCodec.decode(prefs[Keys.MEMORIES])
+            prefs[Keys.MEMORIES] = MemoryCodec.encode(
+                current.map { if (it.id == id) it.copy(text = cleaned) else it },
+            )
+        }
+    }
+
+    suspend fun deleteMemory(id: String) {
+        preferences.edit { prefs ->
+            val current = MemoryCodec.decode(prefs[Keys.MEMORIES])
+            prefs[Keys.MEMORIES] = MemoryCodec.encode(current.filterNot { it.id == id })
+        }
+    }
+
+    suspend fun clearMemories() {
+        preferences.edit { it.remove(Keys.MEMORIES) }
+    }
+
+    /** `/` 快捷指令，顺序即列表顺序。 */
+    val slashCommands: Flow<List<SlashCommand>> =
+        preferences.data.map { SlashCommandCodec.decode(it[Keys.SLASH_COMMANDS]) }
+
+    suspend fun addSlashCommand(name: String, text: String) {
+        val cleanName = name.trim().removePrefix("/")
+        val cleanText = text.trim()
+        if (cleanName.isEmpty() || cleanText.isEmpty()) return
+        preferences.edit { prefs ->
+            val current = SlashCommandCodec.decode(prefs[Keys.SLASH_COMMANDS])
+            // 同名覆盖：改一条指令时不该多出一条重名的
+            val next = current.filterNot { it.name.equals(cleanName, ignoreCase = true) } +
+                SlashCommand(cleanName, cleanText)
+            prefs[Keys.SLASH_COMMANDS] = SlashCommandCodec.encode(next)
+        }
+    }
+
+    suspend fun deleteSlashCommand(name: String) {
+        preferences.edit { prefs ->
+            val current = SlashCommandCodec.decode(prefs[Keys.SLASH_COMMANDS])
+            prefs[Keys.SLASH_COMMANDS] =
+                SlashCommandCodec.encode(current.filterNot { it.name == name })
+        }
+    }
+
+    /** 收藏的消息 id。 */
+    val favoriteMessages: Flow<Set<String>> =
+        preferences.data.map { it[Keys.FAVORITE_MESSAGES] ?: emptySet() }
+
+    /** 收藏的会话 id。 */
+    val favoriteConversations: Flow<Set<String>> =
+        preferences.data.map { it[Keys.FAVORITE_CONVERSATIONS] ?: emptySet() }
+
+    /**
+     * 切换一条消息的收藏。
+     *
+     * 收藏存 id 而不是复制正文：正文会随着「重新生成」「编辑」变化，
+     * 复制一份就会出现两份对不上的历史。
+     */
+    suspend fun toggleFavoriteMessage(id: String) {
+        preferences.edit { prefs ->
+            val current = prefs[Keys.FAVORITE_MESSAGES] ?: emptySet()
+            prefs[Keys.FAVORITE_MESSAGES] =
+                if (id in current) current - id else current + id
+        }
+    }
+
+    suspend fun toggleFavoriteConversation(id: String) {
+        preferences.edit { prefs ->
+            val current = prefs[Keys.FAVORITE_CONVERSATIONS] ?: emptySet()
+            prefs[Keys.FAVORITE_CONVERSATIONS] =
+                if (id in current) current - id else current + id
+        }
+    }
+
+    suspend fun clearFavorites() {
+        preferences.edit {
+            it.remove(Keys.FAVORITE_MESSAGES)
+            it.remove(Keys.FAVORITE_CONVERSATIONS)
+        }
     }
 
     suspend fun setDefaultMode(modeId: String) {
@@ -493,6 +979,30 @@ class SettingsStore(
         return prefs[Keys.API_KEY].orEmpty()
     }
 
+    /**
+     * 可自定义的颜色槽位。
+     *
+     * 只有五项：再多就是"配色编辑器"了 —— 那五处之外的颜色要么是从主色派生
+     * （选中态、气泡底），要么是中性灰（描边、分隔线），单独改它们收益很低。
+     */
+    enum class CustomColorSlot(@StringRes val labelRes: Int, internal val key: Preferences.Key<Int>) {
+        PRIMARY(R.string.settings_custom_primary, Keys.CUSTOM_PRIMARY),
+        USER_BUBBLE(R.string.settings_custom_bubble, Keys.CUSTOM_USER_BUBBLE),
+        PAGE_BACKGROUND(R.string.settings_custom_page_bg, Keys.CUSTOM_PAGE_BG),
+        CARD(R.string.settings_custom_card, Keys.CUSTOM_CARD),
+        TEXT(R.string.settings_custom_text, Keys.CUSTOM_TEXT),
+        ;
+    }
+
+    companion object {
+        /** 最近搜索：最多留几条。再多也翻不到，而清空按钮旁边一屏塞不下。 */
+        const val MAX_RECENT_SEARCHES = 8
+
+        /** 行高倍率的下限 / 上限。 */
+        const val MIN_LINE_HEIGHT = 0.9f
+        const val MAX_LINE_HEIGHT = 1.6f
+    }
+
     private object Keys {
         val PROFILES = stringPreferencesKey("api_profiles_v1")
         val ACTIVE_PROFILE = stringPreferencesKey("active_api_profile")
@@ -516,6 +1026,41 @@ class SettingsStore(
         val FONT_SCALE = floatPreferencesKey("font_scale")
         val FOLLOW_SYSTEM_FONT = booleanPreferencesKey("follow_system_font")
         val AUTO_COLLAPSE_THINKING = booleanPreferencesKey("auto_collapse_thinking")
+        val HAPTIC_SEND = booleanPreferencesKey("haptic_send")
+        val HAPTIC_LONG_PRESS = booleanPreferencesKey("haptic_long_press")
+        val HAPTIC_SWIPE_DELETE = booleanPreferencesKey("haptic_swipe_delete")
+        val SEND_ON_ENTER = booleanPreferencesKey("send_on_enter")
+        val GENERATION_NOTIFICATION = booleanPreferencesKey("generation_notification")
+        val APP_LOCK = booleanPreferencesKey("app_lock")
+        val SECURE_SCREEN = booleanPreferencesKey("secure_screen")
+        val LINE_HEIGHT = floatPreferencesKey("line_height_scale")
+        val BODY_MONOSPACE = booleanPreferencesKey("body_monospace")
+        val CUSTOM_PRIMARY = intPreferencesKey("custom_primary")
+        val CUSTOM_USER_BUBBLE = intPreferencesKey("custom_user_bubble")
+        val CUSTOM_PAGE_BG = intPreferencesKey("custom_page_bg")
+        val CUSTOM_CARD = intPreferencesKey("custom_card")
+        val CUSTOM_TEXT = intPreferencesKey("custom_text")
+        val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
+        val TONE = stringPreferencesKey("ai_tone")
+        val THINKING_SCROLL = booleanPreferencesKey("thinking_scroll")
+        val STEP_THINKING = booleanPreferencesKey("step_thinking")
+        val PRESERVE_REASONING = booleanPreferencesKey("preserve_reasoning")
+        val LEARNING_MODE = booleanPreferencesKey("learning_mode")
+        val SOFT_COMPACTION = booleanPreferencesKey("soft_compaction")
+        val MINIMAL_MODE = booleanPreferencesKey("minimal_mode")
+        val CODE_WRAP = booleanPreferencesKey("code_wrap")
+        val PROCESS_AUTO_EXPAND = booleanPreferencesKey("process_auto_expand")
+        val BROWSER_MODE = stringPreferencesKey("browser_mode")
+        val SEARCH_PROVIDER = stringPreferencesKey("search_provider")
+        val IMAGE_MODEL = stringPreferencesKey("image_model")
+        val KEEP_ALIVE_WAKELOCK = booleanPreferencesKey("keep_alive_wakelock")
+        val KEEP_ALIVE_BATTERY = booleanPreferencesKey("keep_alive_battery")
+        val KEEP_ALIVE_AUDIO = booleanPreferencesKey("keep_alive_audio")
+        val ALLOW_ANY_HTTP = booleanPreferencesKey("allow_any_http")
+        val MEMORIES = stringPreferencesKey("memories")
+        val SLASH_COMMANDS = stringPreferencesKey("slash_commands")
+        val FAVORITE_MESSAGES = stringSetPreferencesKey("favorite_messages")
+        val FAVORITE_CONVERSATIONS = stringSetPreferencesKey("favorite_conversations")
         val DEFAULT_MODE = stringPreferencesKey("default_mode")
         val API_STYLE = stringPreferencesKey("api_style")
         val WEB_SEARCH = booleanPreferencesKey("web_search")

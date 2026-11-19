@@ -49,6 +49,10 @@ interface ConversationDao {
     @Query("SELECT * FROM conversations WHERE id = :id")
     suspend fun findById(id: String): ConversationEntity?
 
+    /** 收藏夹用：按 id 批量取。 */
+    @Query("SELECT * FROM conversations WHERE id IN (:ids)")
+    suspend fun findByIds(ids: List<String>): List<ConversationEntity>
+
     @Query("SELECT * FROM conversations WHERE id = :id")
     fun observeById(id: String): Flow<ConversationEntity?>
 
@@ -154,6 +158,42 @@ interface MessageDao {
      * 树结构在内存里走：会话规模就几百条，一次读回来比递归 CTE 好得多 ——
      * 可测、可读、不受 SQLite 方言差异影响。
      */
+    /**
+     * 所有消息的附件列原文（JSON 数组）。
+     *
+     * 只给「存储清理」用：要判断 `filesDir/attachments/` 里哪些文件**没人引用**。
+     * 刻意读 `attachments` 原文而不是查 `attachment_refs` 表 —— 那张表是增量维护的，
+     * 历史数据不一定齐；消息列才是唯一真相，漏掉它就会把还在用的图片删掉。
+     *
+     * 只 select 这一列，不碰正文与 base64。
+     */
+    @Query("SELECT attachments FROM messages WHERE attachments IS NOT NULL AND attachments != ''")
+    suspend fun allAttachmentBlobs(): List<String>
+
+    /**
+     * 按模型聚合的用量，给「统计」页用。
+     *
+     * 只算 AI 回复，而且只算**记到过 token 数**的那些 —— 老消息没有这一列，
+     * 把它们算进来会把总数拉低，看着像模型变便宜了。
+     */
+    @Query(
+        """
+        SELECT model AS model,
+               COUNT(*) AS requests,
+               COALESCE(SUM(tokens_in), 0) AS inputTokens,
+               COALESCE(SUM(tokens_out), 0) AS outputTokens
+        FROM messages
+        WHERE role = 'assistant' AND tokens_in IS NOT NULL AND model IS NOT NULL
+        GROUP BY model
+        ORDER BY (COALESCE(SUM(tokens_in), 0) + COALESCE(SUM(tokens_out), 0)) DESC
+        """,
+    )
+    suspend fun modelUsage(): List<ModelUsageRow>
+
+    /** 收藏夹用：只要展示需要的几列，不把 attachments 这种大字段拖出来。 */
+    @Query("SELECT id, conversationId, role, content, createdAt FROM messages WHERE id IN (:ids)")
+    suspend fun favoritesByIds(ids: List<String>): List<FavoriteMessageRow>
+
     @Query("SELECT * FROM messages WHERE conversationId = :conversationId")
     suspend fun getAllFor(conversationId: String): List<MessageEntity>
 
@@ -301,7 +341,8 @@ interface MessageDao {
         UPDATE messages
         SET status = :status, errorMessage = :error,
             ttftMs = :ttftMs, tps = :tps, thinkingMs = :thinkingMs,
-            timeline = :timeline, stopReason = :stopReason
+            timeline = :timeline, stopReason = :stopReason,
+            tokens_in = :tokensIn, tokens_out = :tokensOut
         WHERE id = :id
         """,
     )
@@ -314,6 +355,10 @@ interface MessageDao {
         thinkingMs: Long?,
         timeline: String?,
         stopReason: String?,
+        /** 服务端报的输入 token 数；没报就是 null（显示「未记录」，不猜）。 */
+        tokensIn: Int? = null,
+        /** 服务端报的输出 token 数。 */
+        tokensOut: Int? = null,
     )
 
     /**
@@ -535,3 +580,20 @@ interface AttachmentRefDao {
     @Query("DELETE FROM attachment_refs")
     suspend fun clearEverything()
 }
+
+/** 一个模型的用量汇总，见 [MessageDao.modelUsage]。 */
+data class ModelUsageRow(
+    val model: String,
+    val requests: Int,
+    val inputTokens: Long,
+    val outputTokens: Long,
+)
+
+/** 收藏夹里的一条消息（只读展示用）。 */
+data class FavoriteMessageRow(
+    val id: String,
+    val conversationId: String,
+    val role: String,
+    val content: String,
+    val createdAt: Long,
+)

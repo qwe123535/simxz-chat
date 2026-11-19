@@ -240,8 +240,22 @@ data class UiMessage(
      * （唯一用到它的是 `max_tokens`：表示"被上限截断"，可以续写。）
      */
     val stopReason: String? = null,
+    /**
+     * 这一轮服务端报的输入 token 数。
+     *
+     * null = 服务端没报（老数据、或网关不返回 usage）。界面上显示「未记录」，
+     * 而不是拿本地估算冒充 —— 估算与真实用量能差一倍，写进历史就是假数据。
+     */
+    val tokensIn: Int? = null,
+    /** 这一轮服务端报的输出 token 数。 */
+    val tokensOut: Int? = null,
 ) {
     val streaming: Boolean get() = status == MessageStatus.STREAMING
+
+    /** 这一轮的**总**用量（输入 + 输出）；两边都没记录就是 null。 */
+    val totalTokens: Int?
+        get() = if (tokensIn == null && tokensOut == null) null
+        else (tokensIn ?: 0) + (tokensOut ?: 0)
 
     /**
      * 思维链是否**还在**生成。

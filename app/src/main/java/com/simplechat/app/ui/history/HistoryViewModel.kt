@@ -12,6 +12,7 @@ import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import com.simplechat.app.R
 import com.simplechat.app.data.ChatRepository
+import com.simplechat.app.data.SettingsStore
 import com.simplechat.app.data.Res
 import com.simplechat.app.db.ConversationEntity
 import com.simplechat.app.db.ConversationSearchHit
@@ -34,7 +35,10 @@ import kotlinx.coroutines.launch
 data class SearchPage(val hits: List<ConversationSearchHit> = emptyList(), val hasMore: Boolean = false)
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class HistoryViewModel(private val repository: ChatRepository) : ViewModel() {
+class HistoryViewModel(
+    private val repository: ChatRepository,
+    private val settingsStore: SettingsStore,
+) : ViewModel() {
 
     private val queryFlow = MutableStateFlow("")
     private val searchLimit = MutableStateFlow(100)
@@ -82,6 +86,29 @@ class HistoryViewModel(private val repository: ChatRepository) : ViewModel() {
         private set
 
     val selectedIds = mutableStateListOf<String>()
+
+    /**
+     * 最近搜过的关键词（最新在前，最多 [SettingsStore.MAX_RECENT_SEARCHES] 条）。
+     *
+     * 由 [SettingsStore] 持有，这里只把它转成 `StateFlow` 给界面读 ——
+     * 搜索页与设置页都要用同一份，放 ViewModel 里会各持一份。
+     */
+    val recentSearches: StateFlow<List<String>> = settingsStore.recentSearches
+        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), emptyList())
+
+    /**
+     * 记一条搜索。
+     *
+     * 只在**用户点开某条结果**时记，而不是每次输入都记：
+     * 输入是逐字增多的，"k"/"ko"/"kot"… 全记下来，历史里全是半截词。
+     */
+    fun rememberSearch(keyword: String) {
+        viewModelScope.launch { settingsStore.addRecentSearch(keyword) }
+    }
+
+    fun clearRecentSearches() {
+        viewModelScope.launch { settingsStore.clearRecentSearches() }
+    }
 
     fun updateQuery(value: String) {
         query = value
@@ -143,8 +170,11 @@ class HistoryViewModel(private val repository: ChatRepository) : ViewModel() {
     }
 
     companion object {
-        fun factory(repository: ChatRepository): ViewModelProvider.Factory = viewModelFactory {
-            initializer { HistoryViewModel(repository) }
+        fun factory(
+            repository: ChatRepository,
+            settingsStore: SettingsStore,
+        ): ViewModelProvider.Factory = viewModelFactory {
+            initializer { HistoryViewModel(repository, settingsStore) }
         }
     }
 }

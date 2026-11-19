@@ -9,6 +9,19 @@ sealed interface StreamEvent {
     /** 思维链增量（DeepSeek 的 `reasoning_content`）。 */
     data class Reasoning(val text: String) : StreamEvent
 
+    /**
+     * 工具调用增量（OpenAI 兼容通道的 `delta.tool_calls`）。
+     *
+     * 与正文一样是**分片**下发的：同一 [index] 的多条要按顺序拼起来，
+     * `id` 与 `name` 通常只在第一片里出现。
+     */
+    data class ToolCall(
+        val index: Int,
+        val id: String?,
+        val name: String?,
+        val arguments: String?,
+    ) : StreamEvent
+
     /** 用量统计，通常在流末尾到达。 */
     data class Usage(
         val promptTokens: Int,
