@@ -145,6 +145,13 @@ private const val BottomSettleMs = 900L
  */
 private const val HugeMessageChars = 20_000
 
+/**
+ * 一次最多选多少个附件。
+ *
+ * 再多，编码与传输的耗时会盖过用户等待的耐心；模型侧大多也吃不下。
+ */
+private const val MaxBatchAttachments = 20
+
 /** 换会话时，慢过这么久才显示转圈 —— 短会话不该闪一下圈圈。 */
 private const val SpinnerDelayMs = 120L
 
@@ -500,14 +507,35 @@ fun ChatScreen(
     //
     // 三个入口都用系统能力，且**都不需要申请任何权限**：
     // - 拍照走 ACTION_IMAGE_CAPTURE + FileProvider（相机 App 自己持有相机权限）
-    // - 图片走 PickVisualMedia（系统相册选择器）
-    // - 文件走 OpenDocument
+    // - 图片走 PickMultipleVisualMedia（系统相册选择器，可多选）
+    // - 文件走 OpenMultipleDocuments（可多选）
     // 刻意不申请 READ_MEDIA_IMAGES 之类的权限 —— 为了一个附件功能
     // 弹一堆系统授权，性价比太差。
 
     /** 附件读取失败/超限时的统一反馈。 */
     fun onImportFailed(message: String?) {
         attachError = message ?: Res.get(R.string.attach_read_failed)
+    }
+
+    /**
+     * 逐条读一批 URI。
+     *
+     * 三件事在这里一次说清：
+     * ① **读到一个就贴一个**：十几张图等整批读完才出现，会让人以为没反应；
+     * ② **一个失败不影响其余**：失败攒到最后报一句，成功的照常进待发区；
+     * ③ 顺序与选择顺序一致（for 循环串行读，并发读反而会打乱顺序）。
+     */
+    suspend fun importBatch(
+        uris: List<Uri>,
+        read: suspend (Uri) -> Result<List<Attachment>>,
+    ) {
+        var failure: String? = null
+        for (uri in uris) {
+            read(uri)
+                .onSuccess { pending = pending + it }
+                .onFailure { failure = it.userMessage() }
+        }
+        if (failure != null) onImportFailed(failure)
     }
 
     /*
@@ -545,33 +573,36 @@ fun ChatScreen(
         cameraPicker.launch(uri)
     }
 
+    /*
+     * 相册多选：系统照片选择器，最多一次 20 张。
+     *
+     * 为什么不是一次一张：给模型补几张参考图是最常见的用法，一张张点
+     * 要来回进出选择器五次。上限 20 是因为再多，编码与传输的耗时会盖过
+     * 用户等待的耐心，而且模型侧大多也吃不下。
+     */
     val imagePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.PickVisualMedia(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
-        scope.launch {
-            AttachmentImport.image(context, uri)
-                .onSuccess { pending = pending + it }
-                .onFailure { onImportFailed(it.userMessage()) }
-        }
+        ActivityResultContracts.PickMultipleVisualMedia(MaxBatchAttachments),
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
+        scope.launch { importBatch(uris) { AttachmentImport.image(context, it) } }
     }
 
     val filePicker = rememberLauncherForActivityResult(
-        ActivityResultContracts.OpenDocument(),
-    ) { uri ->
-        if (uri == null) return@rememberLauncherForActivityResult
+        ActivityResultContracts.OpenMultipleDocuments(),
+    ) { uris ->
+        if (uris.isEmpty()) return@rememberLauncherForActivityResult
         scope.launch {
             /*
              * 一个入口认三种东西：PDF（渲染成图）、docx（抽文本）、
              * 以及其余一律按纯文本试。格式按**文件头**判定，不看扩展名。
              */
-            AttachmentImport.document(context, uri)
-                .onSuccess { result ->
-                    pending = pending + result.attachments
+            importBatch(uris) { uri ->
+                AttachmentImport.document(context, uri).map { result ->
                     // 有损的地方要说出来（比如 PDF 只带了前 12 页）
                     result.note?.let { attachError = it }
+                    result.attachments
                 }
-                .onFailure { onImportFailed(it.userMessage()) }
+            }
         }
     }
 
@@ -1255,6 +1286,8 @@ fun ChatScreen(
                         readAloudAvailable = ReadAloudEnabled && readAloudAvailable,
                         autoCollapseThinking = vm.autoCollapseThinking,
                         processAutoExpand = vm.processAutoExpand,
+                        loadingLabelFor = vm::loadingLabelFor,
+                        loadingWordsUseThemeColor = vm.loadingWordsUseThemeColor,
                         favorites = vm.favoriteMessages,
                         onToggleFavorite = { message -> vm.toggleFavorite(message.id) },
                         onShareImage = { message ->
