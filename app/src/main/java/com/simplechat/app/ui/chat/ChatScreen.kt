@@ -584,7 +584,10 @@ fun ChatScreen(
         ActivityResultContracts.PickMultipleVisualMedia(MaxBatchAttachments),
     ) { uris ->
         if (uris.isEmpty()) return@rememberLauncherForActivityResult
-        scope.launch { importBatch(uris) { AttachmentImport.image(context, it) } }
+        scope.launch {
+            // image() 一次只产出一条，批量入口要求的是列表
+            importBatch(uris) { uri -> AttachmentImport.image(context, uri).map(::listOf) }
+        }
     }
 
     val filePicker = rememberLauncherForActivityResult(
