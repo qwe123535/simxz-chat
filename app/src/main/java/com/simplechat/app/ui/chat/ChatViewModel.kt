@@ -197,6 +197,21 @@ class ChatViewModel(
     val isStreamingHere: Boolean get() = isStreaming && generatingConversationId == currentConversationId
 
     /**
+     * 这一轮等待首 token 时显示哪句文案（消息 id + 短句）。
+     *
+     * 只存**一条**：同一时刻只有一轮在等首 token。滚动回来时文案不变，
+     * 因为它在流开始时就挑好了，不是每帧随机。
+     */
+    private var loadingLabel by mutableStateOf<Pair<String, String>?>(null)
+
+    internal fun loadingLabelFor(messageId: String): String? =
+        loadingLabel?.takeIf { it.first == messageId }?.second
+
+    /** 等待文案是否改用强调色。 */
+    var loadingWordsUseThemeColor by mutableStateOf(false)
+        private set
+
+    /**
      * 在后台生成完成、但用户还没点开看的会话。
      *
      * 只活在内存里：重启后"哪些是新的"已经说不清，标错比不标更糟。
@@ -551,6 +566,7 @@ class ChatViewModel(
         codeWrap = value.codeWrap
         followWhileGenerating = value.thinkingScroll
         hapticSend = value.hapticSend
+        loadingWordsUseThemeColor = value.loadingWordsUseThemeColor
         hapticLongPress = value.hapticLongPress
         hapticDelete = value.hapticSwipeDelete
         showImageSkipNotice = value.showImageSkipNotice
@@ -1750,6 +1766,11 @@ class ChatViewModel(
             return
         }
         val generation = ++streamGeneration
+        // 首 token 之前的那段空白要有个说法：自定义的优先，没配就用内置那组
+        loadingLabel = replyId to (
+            stored.loadingWords.randomOrNull()
+                ?: Res.strings(R.array.reply_waiting_phrases).random()
+            )
         isStreaming = true
         generatingConversationId = conversationId
         // 生成期间把进程提到前台服务优先级：退到后台 / 熄屏也继续收
