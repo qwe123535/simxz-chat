@@ -31,7 +31,7 @@
     <string name="api_profile_name_hint">例如：DeepSeek 日常、自建服务器</string>
     <string name="api_profile_save_failed">无法安全保存 API Key，原配置已保留，请重试。</string>
     <string name="reply_save_failed">回复未能保存到本机，请先复制内容并检查可用存储空间。</string>
-    <string name="app_name">Simple Chat</string>
+    <string name="app_name">simxz-chat</string>
 
     <!-- ── 通用动作 ─────────────────────────────────────── -->
     <string name="action_cancel">取消</string>
@@ -194,7 +194,7 @@
     <string name="storage_clear_body">会删掉没人引用的附件文件和临时缓存。聊天记录、仍在使用的图片都不受影响。</string>
     <string name="storage_clear_confirm">清理</string>
     <string name="storage_clear_done">已释放 %1$s</string>
-    <string name="settings_about_title">关于 SimpleChat</string>
+    <string name="settings_about_title">关于 simxz-chat</string>
     <string name="settings_export_all">导出所有数据</string>
     <string name="settings_export_all_summary">导出会话、消息与全部版本</string>
     <string name="settings_import_all">导入所有数据</string>
