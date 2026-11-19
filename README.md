@@ -1,10 +1,16 @@
-# SimpleChat
+# simxz-chat
+
+> **这是非官方分支。**
+> 本项目基于官方 [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat) 二次修改，
+> 改名为 **simxz-chat**，包名 `com.simxz.chat`（可与官方版同时安装）。
+> 官方项目与本分支没有隶属关系，问题请提到本仓库；上游的功能与文档以官方仓库为准。
+
 
 > 轻量、原生性能的 Android AI 对话客户端。Jetpack Compose 实现，release 经 R8 压缩后约 3.8 MB。
 
 **中文 | [English](README.en.md)**
 
-[![Version](https://img.shields.io/badge/version-1.1.5-blue)](https://github.com/Pokanshuu/Simple-Chat/releases)
+[![Version](https://img.shields.io/badge/version-0.1-blue)](https://github.com/qwe123535/simxz-chat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 简介
@@ -192,6 +198,8 @@ app/src/main/java/com/simplechat/app/
 ## 许可证
 
 基于 [MIT](LICENSE) 许可证开源。
+
+本项目基于官方 [Simple-Chat](https://github.com/Pokanshuu/Simple-Chat) 二次修改，遵循同一份 MIT 许可证；原项目的版权归其作者所有。
 
 
 
