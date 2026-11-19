@@ -94,6 +94,12 @@ data class StoredSettings(
     val followSystemFont: Boolean = true,
     /** 思考内容是否自动折叠（关闭则默认展开，需手动收起）。 */
     val autoCollapseThinking: Boolean = true,
+
+    /** 等待首 token 时轮换显示的短句；空 = 用内置默认那组。 */
+    val loadingWords: List<String> = emptyList(),
+
+    /** 等待文案是否改用强调色（默认跟思考栏同色，显得安静）。 */
+    val loadingWordsUseThemeColor: Boolean = false,
     /**
      * 回车直接发送。
      *
@@ -383,6 +389,9 @@ class SettingsStore(
                 ?: StoredSettings().followSystemFont,
             autoCollapseThinking = prefs[Keys.AUTO_COLLAPSE_THINKING]
                 ?: StoredSettings().autoCollapseThinking,
+            loadingWords = RecentSearches.decode(prefs[Keys.LOADING_WORDS]),
+            loadingWordsUseThemeColor = prefs[Keys.LOADING_WORDS_THEME]
+                ?: StoredSettings().loadingWordsUseThemeColor,
             hapticSend = prefs[Keys.HAPTIC_SEND] ?: StoredSettings().hapticSend,
             hapticLongPress = prefs[Keys.HAPTIC_LONG_PRESS] ?: StoredSettings().hapticLongPress,
             hapticSwipeDelete = prefs[Keys.HAPTIC_SWIPE_DELETE]
@@ -697,6 +706,27 @@ class SettingsStore(
 
     suspend fun clearRecentSearches() {
         preferences.edit { it.remove(Keys.RECENT_SEARCHES) }
+    }
+
+    /**
+     * 改等待文案。
+     *
+     * 用"传一个变换函数"而不是传整份列表：调用方（设置页）是在当前列表上做
+     * 增 / 改 / 删，而 `StoredSettings` 是快照，拿快照算完再写回会把并发改动吞掉。
+     */
+    suspend fun editLoadingWords(update: (List<String>) -> List<String>) {
+        preferences.edit { prefs ->
+            val words = update(RecentSearches.decode(prefs[Keys.LOADING_WORDS]))
+                .map { normalizeLoadingWord(it) }
+                .filter { it.isNotEmpty() }
+                .distinct()
+            if (words.isEmpty()) prefs.remove(Keys.LOADING_WORDS)
+            else prefs[Keys.LOADING_WORDS] = RecentSearches.encode(words)
+        }
+    }
+
+    suspend fun setLoadingWordsUseThemeColor(enabled: Boolean) {
+        preferences.edit { it[Keys.LOADING_WORDS_THEME] = enabled }
     }
 
     /** 长期记忆：最新的在前。 */
@@ -1041,6 +1071,8 @@ class SettingsStore(
         val CUSTOM_CARD = intPreferencesKey("custom_card")
         val CUSTOM_TEXT = intPreferencesKey("custom_text")
         val RECENT_SEARCHES = stringPreferencesKey("recent_searches")
+        val LOADING_WORDS = stringPreferencesKey("loading_words")
+        val LOADING_WORDS_THEME = booleanPreferencesKey("loading_words_theme_color")
         val TONE = stringPreferencesKey("ai_tone")
         val THINKING_SCROLL = booleanPreferencesKey("thinking_scroll")
         val STEP_THINKING = booleanPreferencesKey("step_thinking")
