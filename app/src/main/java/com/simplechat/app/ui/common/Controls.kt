@@ -129,6 +129,14 @@ val ContainerShape = RoundedCornerShape(24.dp)
 val BubbleShapeOut = RoundedCornerShape(18.dp, 18.dp, 6.dp, 18.dp)
 val BubbleShapeIn = RoundedCornerShape(18.dp, 18.dp, 18.dp, 6.dp)
 
+/**
+ * DeepSeek 皮肤的用户气泡：大圆角，只在**右下角**收紧。
+ *
+ * 官方 App 用的是 22px 圆角 + 右下 4px，方向感来自那一个角，
+ * 而不是把整条气泡做成尖角。
+ */
+val DeepSeekBubbleShape = RoundedCornerShape(22.dp, 22.dp, 4.dp, 22.dp)
+
 // ══════════════════════════════════════════════════════════
 //  滑块
 // ══════════════════════════════════════════════════════════
