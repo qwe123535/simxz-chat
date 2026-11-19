@@ -76,6 +76,10 @@ import com.simplechat.app.data.TokenEstimate
 import com.simplechat.app.ui.common.ReadAloudEnabled
 import com.simplechat.app.ui.common.FoldAnimMs
 import com.simplechat.app.ui.common.BubbleShapeOut
+import com.simplechat.app.ui.common.DeepSeekBubbleShape
+import com.simplechat.app.ui.theme.LocalShowExtras
+import com.simplechat.app.ui.theme.LocalUiStyle
+import com.simplechat.app.ui.theme.UiStyle
 import com.simplechat.app.ui.common.AppIcons
 import com.simplechat.app.ui.common.AppMenu
 import com.simplechat.app.ui.common.AppMenuDivider
@@ -536,10 +540,10 @@ private fun MessageRow(
          * 而不属于操作。流式中不显示（还没报，显示个 0 只会误导）。
          */
         if (!isUser && !message.streaming) {
-            UsageRow(message)
+            if (LocalShowExtras.current) UsageRow(message)
         }
 
-        if (actionable && !isUser && !LocalMinimalMode.current) {
+        if (actionable && !isUser && !LocalMinimalMode.current && LocalShowExtras.current) {
             Spacer(Modifier.size(MessageGap))
             MessageActions(
                 message = message,
@@ -674,9 +678,11 @@ fun UserBubble(
     onFoldToggle: () -> Unit = {},
 ) {
     val colors = LocalChatColors.current
+    val bubbleShape = if (LocalUiStyle.current == UiStyle.DEEPSEEK) DeepSeekBubbleShape else BubbleShapeOut
 
     BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
-        val maxBubbleWidth = maxWidth * 0.82f
+        // DeepSeek 皮肤的气泡更宽一点：那套界面里消息几乎顶到边
+        val maxBubbleWidth = maxWidth * if (LocalUiStyle.current == UiStyle.DEEPSEEK) 0.86f else 0.82f
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,
@@ -715,7 +721,7 @@ fun UserBubble(
                 modifier = Modifier
                     .widthIn(max = maxBubbleWidth)
                     // 右下角收紧，给"从右发出"一个方向感
-                    .background(colors.userBubble, BubbleShapeOut)
+                    .background(colors.userBubble, bubbleShape)
                     .then(pressListener)
                     .combinedClickable(
                         interactionSource = interaction,
@@ -731,7 +737,7 @@ fun UserBubble(
                     Box(
                         modifier = Modifier
                             .matchParentSize()
-                            .background(colors.onUserBubble.copy(alpha = 0.07f), BubbleShapeOut),
+                            .background(colors.onUserBubble.copy(alpha = 0.07f), bubbleShape),
                     )
                 }
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
