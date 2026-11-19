@@ -93,6 +93,7 @@ import com.simplechat.app.data.AppLanguage
 import com.simplechat.app.data.ImportMode
 import com.simplechat.app.data.Res
 import com.simplechat.app.data.SettingsStore
+import com.simplechat.app.data.normalizeLoadingWord
 import com.simplechat.app.data.StoredSettings
 import com.simplechat.app.data.StorageUsage
 import com.simplechat.app.data.ApiProfile
@@ -191,6 +192,7 @@ private enum class SettingsPage(val depth: Int) {
 
     /** 快捷指令：输入框打 / 调用的可编辑列表。 */
     SLASH_COMMANDS(1),
+    LOADING_WORDS(1),
 
     /** 收藏夹：收藏的消息与会话。 */
     FAVORITES(1),
@@ -224,6 +226,11 @@ private sealed interface SettingsDialog {
 
     /** 删除一条快捷指令前的确认。 */
     data class DeleteSlash(val command: SlashCommand) : SettingsDialog
+
+    /** [original] 为空 = 新增。 */
+    data class LoadingWordEditor(val original: String? = null) : SettingsDialog
+
+    data class DeleteLoadingWord(val word: String) : SettingsDialog
     data object ImportMode : SettingsDialog
     /** 协议通道（自动 / OpenAI 兼容 / Anthropic 兼容）。 */
     data object ApiStyle : SettingsDialog
@@ -701,6 +708,7 @@ fun SettingsScreen(
                 SettingsPage.KEEPALIVE -> stringResource(R.string.settings_keepalive)
                 SettingsPage.SECURITY -> stringResource(R.string.settings_security)
                 SettingsPage.SLASH_COMMANDS -> stringResource(R.string.settings_slash_commands)
+                SettingsPage.LOADING_WORDS -> stringResource(R.string.settings_loading_words)
                 SettingsPage.FAVORITES -> stringResource(R.string.settings_favorites)
             },
             showBack = page != SettingsPage.ROOT,
@@ -874,6 +882,15 @@ fun SettingsScreen(
                             onAppLock = { scope.launch { store.setAppLock(it) } },
                             onSecureScreen = { scope.launch { store.setSecureScreen(it) } },
                             onAllowHttp = { scope.launch { store.setAllowAnyHttp(it) } },
+                        )
+
+                        SettingsPage.LOADING_WORDS -> LoadingWordsPage(
+                            words = stored.loadingWords,
+                            useThemeColor = stored.loadingWordsUseThemeColor,
+                            onUseThemeColor = { scope.launch { store.setLoadingWordsUseThemeColor(it) } },
+                            onAdd = { dialog = SettingsDialog.LoadingWordEditor() },
+                            onEdit = { dialog = SettingsDialog.LoadingWordEditor(it) },
+                            onDelete = { dialog = SettingsDialog.DeleteLoadingWord(it) },
                         )
 
                         SettingsPage.SLASH_COMMANDS -> SlashCommandsPage(
@@ -1125,6 +1142,44 @@ fun SettingsScreen(
                     }
                     store.addSlashCommand(name, text)
                 }
+            },
+        )
+
+        is SettingsDialog.LoadingWordEditor -> AppTextInputDialog(
+            title = stringResource(
+                if (activeDialog.original == null) R.string.loading_words_add else R.string.loading_words_edit,
+            ),
+            initial = activeDialog.original.orEmpty(),
+            placeholder = stringResource(R.string.loading_words_placeholder),
+            onDismiss = { dialog = null },
+            onConfirm = { raw ->
+                val original = activeDialog.original
+                dialog = null
+                scope.launch {
+                    store.editLoadingWords { current ->
+                        val word = normalizeLoadingWord(raw)
+                        if (word.isEmpty()) return@editLoadingWords current
+                        when {
+                            // 新增
+                            original == null -> (current + word).distinct()
+                            // 改名：原位替换，顺序不乱
+                            else -> current.map { if (it == original) word else it }.distinct()
+                        }
+                    }
+                }
+            },
+        )
+
+        is SettingsDialog.DeleteLoadingWord -> AppConfirmDialog(
+            title = stringResource(R.string.loading_words_delete_title),
+            message = stringResource(R.string.loading_words_delete_body, activeDialog.word),
+            confirmText = stringResource(R.string.action_delete),
+            destructive = true,
+            onDismiss = { dialog = null },
+            onConfirm = {
+                val word = activeDialog.word
+                dialog = null
+                scope.launch { store.editLoadingWords { current -> current - word } }
             },
         )
 
@@ -1531,6 +1586,16 @@ private fun RootPage(
                     stringResource(R.string.value_off)
                 },
                 onClick = { onOpen(SettingsPage.OUTPUT) },
+            ),
+            SettingsTileSpec(
+                icon = AppIcons.FontSize,
+                label = stringResource(R.string.settings_loading_words),
+                value = if (stored.loadingWords.isEmpty()) {
+                    stringResource(R.string.settings_loading_words_summary)
+                } else {
+                    stored.loadingWords.size.toString()
+                },
+                onClick = { onOpen(SettingsPage.LOADING_WORDS) },
             ),
         ),
     )
@@ -4330,6 +4395,73 @@ private fun formatTokenCount(value: Long): String {
  * 只做"列表 + 增删改"，不做排序：条数一般不超过十条，拖拽排序的收益
  * 抵不上它带来的手势冲突（这一页在竖向滚动容器里）。
  */
+/**
+ * 等待文案页。
+ *
+ * 只让用户管**文字**，省略号交给动画补：等待时那三点是逐秒出现的，
+ * 用户自己写「思考中…」会变成「思考中....」。
+ */
+@Composable
+private fun LoadingWordsPage(
+    words: List<String>,
+    useThemeColor: Boolean,
+    onUseThemeColor: (Boolean) -> Unit,
+    onAdd: () -> Unit,
+    onEdit: (String) -> Unit,
+    onDelete: (String) -> Unit,
+) {
+    val colors = LocalChatColors.current
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Text(
+            text = stringResource(
+                if (words.isEmpty()) R.string.loading_words_empty else R.string.loading_words_hint,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = colors.placeholder,
+            modifier = Modifier.padding(horizontal = 8.dp, vertical = 12.dp),
+        )
+        SettingsCard {
+            SettingsSwitchRow(
+                label = stringResource(R.string.loading_words_use_theme_color),
+                subtitle = stringResource(R.string.loading_words_use_theme_color_hint),
+                checked = useThemeColor,
+                onCheckedChange = onUseThemeColor,
+                icon = AppIcons.Palette,
+            )
+            words.forEach { word ->
+                RowDivider(inset = 16.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onEdit(word) }
+                        .padding(start = 16.dp, end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    Text(
+                        text = word,
+                        style = MaterialTheme.typography.bodyMedium,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(vertical = 12.dp),
+                    )
+                    IconCircleButton(
+                        icon = AppIcons.Trash,
+                        contentDescription = stringResource(R.string.loading_words_delete_title),
+                        onClick = { onDelete(word) },
+                    )
+                }
+            }
+        }
+        Spacer(Modifier.height(16.dp))
+        CapsuleButton(
+            text = stringResource(R.string.loading_words_add),
+            onClick = onAdd,
+            leadingIcon = AppIcons.PlusCircle,
+        )
+        Spacer(Modifier.height(24.dp))
+    }
+}
+
 @Composable
 private fun SlashCommandsPage(
     commands: List<SlashCommand>,
