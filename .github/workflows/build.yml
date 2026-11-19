@@ -43,8 +43,26 @@ jobs:
 
       # release 用的是 debug 签名（仓库里没有 keystore.properties）：
       # 能装、能测，但**不能覆盖官方版**，装之前先卸载
+      # 编译错误用 ::error:: 转成 GitHub annotation：
+      # 日志下载要额外权限，annotation 用 API 就能读，排查快得多
       - name: Build
-        run: ./gradlew :app:assembleRelease :app:assembleDebug --stacktrace
+        run: |
+          set +e
+          ./gradlew :app:assembleRelease :app:assembleDebug --stacktrace 2>&1 | tee build.log
+          status=${PIPESTATUS[0]}
+          if [ $status -ne 0 ]; then
+            grep -E '^e: ' build.log | head -60 | sed 's/^e: /::error::/' || true
+            grep -E '^> Task .* FAILED' build.log | head -10 | sed 's/^/::error::/' || true
+          fi
+          exit $status
+
+      - name: Upload build log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: build.log
+          retention-days: 7
 
       - name: Rename artifacts
         run: |
