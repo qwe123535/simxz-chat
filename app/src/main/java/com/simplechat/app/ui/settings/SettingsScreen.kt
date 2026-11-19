@@ -123,6 +123,8 @@ import com.simplechat.app.ui.common.screenTransform
 import com.simplechat.app.ui.theme.AccentColor
 import com.simplechat.app.ui.theme.LocalChatColors
 import com.simplechat.app.ui.theme.LocalIsDarkTheme
+import com.simplechat.app.ui.theme.LocalUiStyle
+import com.simplechat.app.ui.theme.UiStyle
 import com.simplechat.app.ui.theme.ThemeMode
 import com.simplechat.app.ui.theme.primary
 import java.text.SimpleDateFormat
@@ -762,6 +764,8 @@ fun SettingsScreen(
                             onToggleAutoCollapse = {
                                 scope.launch { store.setAutoCollapseThinking(it) }
                             },
+                            onUiStyleChange = { scope.launch { store.setUiStyle(it.id) } },
+                            onToggleExtras = { scope.launch { store.setShowExtrasInDeepSeek(it) } },
                         )
 
                         SettingsPage.DATA -> DataPage(
@@ -1349,8 +1353,11 @@ private fun RootPage(
     onAccentChange: (AccentColor) -> Unit,
     onLanguageChange: (AppLanguage) -> Unit,
     onToggleAutoCollapse: (Boolean) -> Unit,
+    onUiStyleChange: (UiStyle) -> Unit,
+    onToggleExtras: (Boolean) -> Unit,
 ) {
     var themeMenuOpen by remember { mutableStateOf(false) }
+    var uiStyleMenuOpen by remember { mutableStateOf(false) }
     var accentMenuOpen by remember { mutableStateOf(false) }
     var languageMenuOpen by remember { mutableStateOf(false) }
 
@@ -1496,6 +1503,53 @@ private fun RootPage(
                 onClick = { onOpen(SettingsPage.FONT) },
             ),
         ),
+    )
+    SettingsTileRow(
+        listOf(
+            // 界面风格：原版 / DeepSeek 皮肤
+            SettingsTileSpec(
+                icon = AppIcons.Contrast,
+                label = stringResource(R.string.settings_ui_style),
+                value = when (UiStyle.fromId(stored.uiStyleId)) {
+                    UiStyle.ORIGINAL -> stringResource(R.string.ui_style_original)
+                    UiStyle.DEEPSEEK -> stringResource(R.string.ui_style_deepseek)
+                },
+                onClick = { uiStyleMenuOpen = true },
+                menu = {
+                    AppMenu(
+                        expanded = uiStyleMenuOpen,
+                        onDismissRequest = { uiStyleMenuOpen = false },
+                    ) {
+                        listOf(
+                            UiStyle.ORIGINAL to stringResource(R.string.ui_style_original),
+                            UiStyle.DEEPSEEK to stringResource(R.string.ui_style_deepseek),
+                        ).forEach { (option, label) ->
+                            AppMenuItem(
+                                label = label,
+                                selected = option == UiStyle.fromId(stored.uiStyleId),
+                                onClick = {
+                                    uiStyleMenuOpen = false
+                                    onUiStyleChange(option)
+                                },
+                            )
+                        }
+                    }
+                },
+            ),
+            // 只有 DeepSeek 皮肤才需要问"高级功能留不留"
+            if (UiStyle.fromId(stored.uiStyleId) == UiStyle.DEEPSEEK) {
+                SettingsTileSpec(
+                    icon = AppIcons.Sliders,
+                    label = stringResource(R.string.settings_show_extras),
+                    value = stringResource(
+                        if (stored.showExtrasInDeepSeek) R.string.value_on else R.string.value_off,
+                    ),
+                    onClick = { onToggleExtras(!stored.showExtrasInDeepSeek) },
+                )
+            } else {
+                null
+            },
+        ).filterNotNull(),
     )
     SettingsTileRow(
         listOf(
@@ -2072,6 +2126,31 @@ private val TileGap = 12.dp
 /** 两列方格的一行；只有一格时右侧留空，左右始终对齐。 */
 @Composable
 private fun SettingsTileRow(tiles: List<SettingsTileSpec>) {
+    /*
+     * DeepSeek 皮肤下把方格摊成整行。
+     *
+     * 那套界面的设置页是"一行一项、右边一个值 + 箭头"，没有方格网格 ——
+     * 数据是同一份（[SettingsTileSpec]），只是排法不同，所以这里只换布局，
+     * 不去复制一份设置清单：复制迟早会漏项。
+     */
+    if (LocalUiStyle.current == UiStyle.DEEPSEEK) {
+        Column(modifier = Modifier.fillMaxWidth().padding(bottom = TileGap)) {
+            tiles.forEachIndexed { index, tile ->
+                if (index > 0) RowDivider(inset = 16.dp)
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    SettingsTile(
+                        icon = tile.icon,
+                        label = tile.label,
+                        value = tile.value,
+                        onClick = tile.onClick,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    tile.menu?.invoke()
+                }
+            }
+        }
+        return
+    }
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -2106,6 +2185,50 @@ private fun SettingsTile(
     modifier: Modifier = Modifier,
 ) {
     val colors = LocalChatColors.current
+    if (LocalUiStyle.current == UiStyle.DEEPSEEK) {
+        // 列表行：图标 + 名称 + 右侧值 + 箭头，跟官方设置页一个样子
+        Row(
+            modifier = modifier
+                .fillMaxWidth()
+                .clickable(onClick = onClick)
+                .padding(horizontal = 16.dp, vertical = 14.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            if (icon != null) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = colors.placeholder,
+                    modifier = Modifier.size(20.dp),
+                )
+                Spacer(Modifier.width(12.dp))
+            }
+            Text(
+                text = label,
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+            if (value != null) {
+                Text(
+                    text = value,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.placeholder,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(start = 8.dp),
+                )
+            }
+            Icon(
+                imageVector = AppIcons.ChevronRight,
+                contentDescription = null,
+                tint = colors.placeholder,
+                modifier = Modifier
+                    .padding(start = 4.dp)
+                    .size(16.dp),
+            )
+        }
+        return
+    }
     Column(
         modifier = modifier
             .clip(MenuShape)
