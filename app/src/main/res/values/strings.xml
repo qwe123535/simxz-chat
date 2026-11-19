@@ -836,4 +836,8 @@
     <string name="action_share_image">分享长图</string>
     <string name="share_image_failed">生成长图失败</string>
     <string name="share_image_chooser">分享这段对话</string>
+    <string name="settings_ui_style">界面风格</string>
+    <string name="ui_style_original">原版</string>
+    <string name="ui_style_deepseek">DeepSeek 风格</string>
+    <string name="settings_show_extras">显示高级功能</string>
 </resources>
