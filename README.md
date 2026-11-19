@@ -10,7 +10,7 @@
 
 **中文 | [English](README.en.md)**
 
-[![Version](https://img.shields.io/badge/version-0.5-blue)](https://github.com/qwe123535/simxz-chat/releases)
+[![Version](https://img.shields.io/badge/version-0.6-blue)](https://github.com/qwe123535/simxz-chat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 简介
