@@ -69,6 +69,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.simplechat.app.R
 import com.simplechat.app.data.Attachment
@@ -522,7 +523,7 @@ private fun MessageRow(
          * 极简的 `‹ 2/3 ›`，否则旧版本在界面上就彻底够不着了。
          */
         if (actionable && isUser && message.variantCount > 1) {
-            Spacer(Modifier.size(MessageGap))
+            Spacer(Modifier.size(messageGap()))
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.End,
@@ -544,7 +545,7 @@ private fun MessageRow(
         }
 
         if (actionable && !isUser && !LocalMinimalMode.current && LocalShowExtras.current) {
-            Spacer(Modifier.size(MessageGap))
+            Spacer(Modifier.size(messageGap()))
             MessageActions(
                 message = message,
                 peeked = peeked,
@@ -1014,7 +1015,7 @@ fun AssistantBlock(
          */
         if (message.streaming && answer.isBlank() && !hasReasoning && timeline == null) {
             WaitingIndicator(loadingLabel, useThemeColor = loadingWordsUseThemeColor)
-            Spacer(Modifier.size(MessageGap))
+            Spacer(Modifier.size(messageGap()))
         }
 
         if (timeline != null) {
@@ -1029,7 +1030,7 @@ fun AssistantBlock(
                     },
                     onOpenSources = { sourceSheet = it },
                 )
-                Spacer(Modifier.size(MessageGap))
+                Spacer(Modifier.size(messageGap()))
             }
         } else if (hasReasoning) {
             ProcessPanel(
@@ -1050,7 +1051,7 @@ fun AssistantBlock(
                     onFoldToggle()
                 },
             )
-            Spacer(Modifier.size(MessageGap))
+            Spacer(Modifier.size(messageGap()))
         }
 
         /*
@@ -1331,6 +1332,15 @@ private val ActionGap = 2.dp
  * 先前是「思考栏→正文 14dp、正文→操作栏 6dp」，两头不一致。
  */
 private val MessageGap = 12.dp
+
+/**
+ * 消息之间的竖向间隔。
+ *
+ * DeepSeek 那套界面留白更松（用户消息底距 20dp），我们原版是 12dp。
+ * 这个差值直接决定"挤"还是"透气"，比换个颜色明显得多。
+ */
+@Composable
+private fun messageGap(): Dp = if (LocalUiStyle.current == UiStyle.DEEPSEEK) 20.dp else MessageGap
 
 /** 用户消息收起时显示几行。超过就折叠 —— 参照官方。 */
 private val UserBubbleCollapsedLines = 10
