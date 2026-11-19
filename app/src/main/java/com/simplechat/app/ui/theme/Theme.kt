@@ -159,6 +159,84 @@ private val DarkChatColors = ChatColors(
 val LocalChatColors = staticCompositionLocalOf { LightChatColors }
 
 /**
+ * DeepSeek 皮肤的品牌色与表面色。
+ *
+ * 取自官方 App 的视觉：主色是偏冷的蓝（`rgb(57,100,254)`），用户气泡是很淡的蓝，
+ * 助手消息**不加气泡**、直接铺在页面底色上 —— 这两条是那套界面的骨架，
+ * 少了它们就只是"换了个蓝"。
+ */
+private val DeepSeekBlue = Color(0xFF3964FE)
+private val DeepSeekBubbleLight = Color(0xFFEDF3FE)
+private val DeepSeekBubbleDark = Color(0xFF2A3556)
+private val DeepSeekPageLight = Color(0xFFFFFFFF)
+private val DeepSeekPageDark = Color(0xFF191919)
+private val DeepSeekCardLight = Color(0xFFF7F7F8)
+private val DeepSeekCardDark = Color(0xFF232323)
+private val DeepSeekFieldLight = Color(0xFFF2F3F5)
+private val DeepSeekFieldDark = Color(0xFF2A2A2A)
+
+/**
+ * DeepSeek 皮肤下的 [ChatColors]。
+ *
+ * 刻意**不叠加**用户的强调色与自定义配色：那是一套跟原版配套的调色，
+ * 混进来只会得到"半蓝半绿"的四不像。要自定义就切回原版。
+ */
+private fun deepSeekChatColors(dark: Boolean): ChatColors {
+    val base = if (dark) DarkChatColors else LightChatColors
+    return base.copy(
+        userBubble = if (dark) DeepSeekBubbleDark else DeepSeekBubbleLight,
+        onUserBubble = if (dark) Color(0xFFE8E8EA) else Color(0xFF1A1A1A),
+        capsuleSelected = if (dark) Color(0xFF2C3550) else DeepSeekBubbleLight,
+        pageBackground = if (dark) DeepSeekPageDark else DeepSeekPageLight,
+        card = if (dark) DeepSeekCardDark else DeepSeekCardLight,
+        fieldBackground = if (dark) DeepSeekFieldDark else DeepSeekFieldLight,
+    )
+}
+
+/** DeepSeek 皮肤下的 Material 配色。只换主色那一族，功能色（危险/警告）照旧。 */
+private fun deepSeekScheme(dark: Boolean): ColorScheme {
+    val tint = if (dark) DeepSeekBlue.copy(alpha = 0.24f) else Color(0xFFEDF3FE)
+    val page = if (dark) DeepSeekPageDark else DeepSeekPageLight
+    val card = if (dark) DeepSeekCardDark else DeepSeekCardLight
+    val onSurface = if (dark) TextPrimaryDark else TextPrimaryLight
+    return if (dark) {
+        darkColorScheme(
+            primary = DeepSeekBlue,
+            onPrimary = Color.White,
+            primaryContainer = tint,
+            onPrimaryContainer = DeepSeekBlue,
+            background = page,
+            onBackground = onSurface,
+            surface = card,
+            onSurface = onSurface,
+            surfaceVariant = DeepSeekFieldDark,
+            onSurfaceVariant = TextSecondaryDark,
+            outline = OutlineDark,
+            outlineVariant = DividerDark,
+            error = DangerRedDark,
+            onError = Color.White,
+        )
+    } else {
+        lightColorScheme(
+            primary = DeepSeekBlue,
+            onPrimary = Color.White,
+            primaryContainer = tint,
+            onPrimaryContainer = DeepSeekBlue,
+            background = page,
+            onBackground = onSurface,
+            surface = card,
+            onSurface = onSurface,
+            surfaceVariant = DeepSeekFieldLight,
+            onSurfaceVariant = TextSecondaryLight,
+            outline = OutlineLight,
+            outlineVariant = DividerLight,
+            error = DangerRed,
+            onError = Color.White,
+        )
+    }
+}
+
+/**
  * 把主题色套到基础色板上。
  *
  * 只换两处"品牌色表面"：**选中态填充**与**用户气泡**。
@@ -296,6 +374,8 @@ fun SimpleChatTheme(
     custom: CustomColors = CustomColors.NONE,
     lineHeightScale: Float = 1f,
     bodyMonospace: Boolean = false,
+    uiStyle: UiStyle = UiStyle.ORIGINAL,
+    showExtras: Boolean = true,
     content: @Composable () -> Unit,
 ) {
     val dark = when (themeMode) {
@@ -304,7 +384,8 @@ fun SimpleChatTheme(
         ThemeMode.DARK -> true
     }
 
-    val scheme = staticScheme(dark, accent, custom)
+    val deepSeek = uiStyle == UiStyle.DEEPSEEK
+    val scheme = if (deepSeek) deepSeekScheme(dark) else staticScheme(dark, accent, custom)
 
     val overrides = TextOverrides(lineHeightScale, bodyMonospace)
     val typography = remember(overrides) { SimpleChatTypography.withReadingOverrides(overrides) }
@@ -312,7 +393,9 @@ fun SimpleChatTheme(
     val baseDensity = LocalDensity.current
 
     CompositionLocalProvider(
-        LocalChatColors provides chatColors(dark, accent, custom),
+        LocalChatColors provides if (deepSeek) deepSeekChatColors(dark) else chatColors(dark, accent, custom),
+        LocalUiStyle provides uiStyle,
+        LocalShowExtras provides showExtras,
         LocalIsDarkTheme provides dark,
         LocalTextOverrides provides overrides,
         LocalDensity provides Density(
