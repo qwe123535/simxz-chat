@@ -1,6 +1,6 @@
 # simxz-chat
 
-[![Version](https://img.shields.io/badge/version-0.7-blue)](https://github.com/qwe123535/simxz-chat/releases)
+[![Version](https://img.shields.io/badge/version-0.8-blue)](https://github.com/qwe123535/simxz-chat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-not_long_term_maintained-orange)](#maintenance-status)
 
@@ -66,7 +66,7 @@ On top of upstream:
 
 ## Download
 
-Grab the APK from [Releases](https://github.com/qwe123535/simxz-chat/releases). Current version: **0.7**.
+Grab the APK from [Releases](https://github.com/qwe123535/simxz-chat/releases). Current version: **0.8**.
 
 Package name `com.simxz.chat`; it coexists with the original. The APK is debug-signed (no release keystore is configured), so **uninstall any older build with the same package name first**.
 
