@@ -231,6 +231,6 @@ private fun BrowserAction(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(image = icon, contentDescription = label, tint = tint, modifier = Modifier.size(20.dp))
+        Icon(imageVector = icon, contentDescription = label, tint = tint, modifier = Modifier.size(20.dp))
     }
 }

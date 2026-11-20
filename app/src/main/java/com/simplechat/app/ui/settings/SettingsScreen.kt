@@ -813,7 +813,6 @@ fun SettingsScreen(
                             report = storageReport,
                             clearing = storageClearing,
                             message = storageMessage,
-                            onExport = { exportLogs(context, listOf(logText, logCrash)) },
                             onClear = { dialog = SettingsDialog.ClearStorage },
                         )
 
@@ -868,6 +867,7 @@ fun SettingsScreen(
                                     logCrash = CrashDiagnostics.file(context)?.readText().orEmpty()
                                 }
                             },
+                            onExport = { exportLogs(context, listOf(logText, logCrash)) },
                             onClear = {
                                 scope.launch {
                                     ErrorLog.clear(context)
