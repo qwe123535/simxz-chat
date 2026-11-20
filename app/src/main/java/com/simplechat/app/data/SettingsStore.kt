@@ -116,6 +116,15 @@ data class StoredSettings(
      * 唯一的消费者就是主题层，多一个转换层没有收益。
      */
     val uiStyleId: String = "ORIGINAL",
+    /**
+     * 无痕会话的 id。
+     *
+     * 这些会话在抽屉里看不到、不进搜索与统计；离开时会问一句「保留还是删除」。
+     * 为什么不用"内存里根本不存在"的做法：消息、附件、分支、压缩全都要落库才能工作，
+     * 真正不落库等于把半个数据层重写一遍。这里退一步 —— 临时落库、离开即删，
+     * 用对话框保证用户知情。
+     */
+    val incognitoIds: Set<String> = emptySet(),
 
     /**
      * DeepSeek 皮肤下是否显示"高级功能"（思考块、每句用量、操作栏、`/` 指令）。
@@ -420,6 +429,7 @@ class SettingsStore(
             loadingWordsUseThemeColor = prefs[Keys.LOADING_WORDS_THEME]
                 ?: StoredSettings().loadingWordsUseThemeColor,
             uiStyleId = prefs[Keys.UI_STYLE] ?: StoredSettings().uiStyleId,
+            incognitoIds = prefs[Keys.INCOGNITO_IDS] ?: emptySet(),
             showExtrasInDeepSeek = prefs[Keys.DEEPSEEK_EXTRAS]
                 ?: StoredSettings().showExtrasInDeepSeek,
             hapticSend = prefs[Keys.HAPTIC_SEND] ?: StoredSettings().hapticSend,
@@ -545,6 +555,21 @@ class SettingsStore(
                     ?: throw AppTextException(com.simplechat.app.R.string.api_profile_save_failed)
             }
             prefs.remove(Keys.API_KEY)
+        }
+    }
+
+    val incognitoIds: Flow<Set<String>> =
+        preferences.data.map { it[Keys.INCOGNITO_IDS] ?: emptySet() }
+
+    suspend fun markIncognito(id: String) {
+        preferences.edit { prefs ->
+            prefs[Keys.INCOGNITO_IDS] = (prefs[Keys.INCOGNITO_IDS] ?: emptySet()) + id
+        }
+    }
+
+    suspend fun unmarkIncognito(id: String) {
+        preferences.edit { prefs ->
+            prefs[Keys.INCOGNITO_IDS] = (prefs[Keys.INCOGNITO_IDS] ?: emptySet()) - id
         }
     }
 
@@ -1128,6 +1153,7 @@ class SettingsStore(
         val LOADING_WORDS = stringPreferencesKey("loading_words")
         val LOADING_WORDS_THEME = booleanPreferencesKey("loading_words_theme_color")
         val UI_STYLE = stringPreferencesKey("ui_style")
+        val INCOGNITO_IDS = stringSetPreferencesKey("incognito_ids")
         val DEEPSEEK_EXTRAS = booleanPreferencesKey("deepseek_extras")
         val TONE = stringPreferencesKey("ai_tone")
         val THINKING_SCROLL = booleanPreferencesKey("thinking_scroll")

@@ -875,4 +875,18 @@
     <string name="behavior_context_window">Context window</string>
     <string name="behavior_context_auto">Auto (per model)</string>
     <string name="behavior_context_window_hint">Models the built-in table does not know default to 128K. Set the real value here so the budget bar and auto-compaction match — too high gets a 400 from the server, too low compacts early.</string>
+    <string name="action_share">Share</string>
+    <string name="browser_back">Back</string>
+    <string name="browser_forward">Forward</string>
+    <string name="browser_reload">Reload</string>
+    <string name="hist_new_conversation">New chat</string>
+    <string name="hist_new_incognito">Incognito</string>
+    <string name="incognito_keep_title">Keep this incognito chat?</string>
+    <string name="incognito_keep_body">Incognito chats never appear in the list, search or stats. Keeping turns it into a normal chat; discarding deletes its messages.</string>
+    <string name="incognito_keep_confirm">Keep</string>
+    <string name="incognito_discard_confirm">Delete</string>
+    <string name="incognito_leftover_title">%1$d incognito chat(s) from last time</string>
+    <string name="incognito_leftover_body">Keep them? Discarding deletes their messages for good.</string>
+    <string name="incognito_banner">Incognito</string>
+    <string name="logs_export">Export</string>
 </resources>

@@ -876,4 +876,18 @@
     <string name="behavior_context_window">上下文窗口</string>
     <string name="behavior_context_auto">自动（按模型）</string>
     <string name="behavior_context_window_hint">模型表认不出的模型默认按 128K 算。这里手动填真实值，预算条和自动压缩才会准 —— 填大了会在服务端被 400，填小了会提前压缩。</string>
+    <string name="action_share">分享</string>
+    <string name="browser_back">后退</string>
+    <string name="browser_forward">前进</string>
+    <string name="browser_reload">刷新</string>
+    <string name="hist_new_conversation">新建对话</string>
+    <string name="hist_new_incognito">无痕对话</string>
+    <string name="incognito_keep_title">保留这次无痕对话？</string>
+    <string name="incognito_keep_body">无痕对话不会出现在列表、搜索和统计里。保留后它变成普通会话；删除则连同消息一起清掉。</string>
+    <string name="incognito_keep_confirm">保留</string>
+    <string name="incognito_discard_confirm">删除</string>
+    <string name="incognito_leftover_title">上次有 %1$d 个无痕对话</string>
+    <string name="incognito_leftover_body">要保留它们吗？选删除会连同消息一起清掉，且无法恢复。</string>
+    <string name="incognito_banner">无痕对话</string>
+    <string name="logs_export">导出</string>
 </resources>

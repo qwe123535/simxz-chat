@@ -123,6 +123,8 @@ fun HistoryDrawerContent(
     failedConversations: Set<String> = emptySet(),
     /** 空列表里的「新建对话」按钮。空列表只留一句灰字等于把人卡死在这里。 */
     onNewConversation: () -> Unit = {},
+    /** 新建无痕对话：不进列表、离开时问要不要留。 */
+    onNewIncognito: () -> Unit = {},
 ) {
     val colors = LocalChatColors.current
 
@@ -138,6 +140,32 @@ fun HistoryDrawerContent(
 
         if (selectionMode) {
             SelectionHeader(count = selectedIds.size)
+        } else {
+            /*
+             * 两个新建入口并排。
+             *
+             * 无痕对话刻意做得"没那么显眼"（同样的胶囊、不加颜色），但也不能藏进二级菜单 ——
+             * 想开的时候找不到，就等于没做。
+             */
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 12.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+            ) {
+                CapsuleButton(
+                    text = stringResource(R.string.hist_new_conversation),
+                    onClick = onNewConversation,
+                    leadingIcon = AppIcons.MessageSquarePlus,
+                    modifier = Modifier.weight(1f),
+                )
+                CapsuleButton(
+                    text = stringResource(R.string.hist_new_incognito),
+                    onClick = onNewIncognito,
+                    leadingIcon = AppIcons.EyeOff,
+                    modifier = Modifier.weight(1f),
+                )
+            }
         }
 
         // ── 列表 ─────────────────────────────────────────

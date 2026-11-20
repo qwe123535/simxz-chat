@@ -813,6 +813,7 @@ fun SettingsScreen(
                             report = storageReport,
                             clearing = storageClearing,
                             message = storageMessage,
+                            onExport = { exportLogs(context, listOf(logText, logCrash)) },
                             onClear = { dialog = SettingsDialog.ClearStorage },
                         )
 
@@ -846,6 +847,7 @@ fun SettingsScreen(
                             onCodeWrap = { scope.launch { store.setCodeWrap(it) } },
                             onProcessExpand = { scope.launch { store.setProcessAutoExpand(it) } },
                             onAutoCollapse = { scope.launch { store.setAutoCollapseThinking(it) } },
+                            onBrowserMode = { scope.launch { store.setBrowserMode(it) } },
                         )
 
                         SettingsPage.STATS -> StatsPage(rows = statsRows)
@@ -4106,8 +4108,33 @@ private fun OutputPage(
     onCodeWrap: (Boolean) -> Unit,
     onProcessExpand: (Boolean) -> Unit,
     onAutoCollapse: (Boolean) -> Unit,
+    onBrowserMode: (String) -> Unit,
 ) {
     val colors = LocalChatColors.current
+
+    SettingsSectionLabel(stringResource(R.string.output_group_link))
+    SettingsCard {
+        SettingsChoiceRow(
+            label = stringResource(R.string.output_browser_mode),
+            value = if (stored.browserModeId == "BUILTIN") {
+                stringResource(R.string.output_browser_builtin)
+            } else {
+                stringResource(R.string.output_browser_external)
+            },
+            selectedId = stored.browserModeId,
+            options = listOf(
+                "BUILTIN" to stringResource(R.string.output_browser_builtin),
+                "EXTERNAL" to stringResource(R.string.output_browser_external),
+            ),
+            onSelect = onBrowserMode,
+        )
+    }
+    Text(
+        text = stringResource(R.string.output_browser_hint),
+        style = MaterialTheme.typography.labelSmall,
+        color = colors.placeholder,
+        modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 8.dp, bottom = 4.dp),
+    )
 
     SettingsSectionLabel(stringResource(R.string.output_group_code))
     SettingsCard {
@@ -4298,6 +4325,7 @@ private fun LogsPage(
     crash: String,
     onRefresh: () -> Unit,
     onClear: () -> Unit,
+    onExport: () -> Unit,
 ) {
     val colors = LocalChatColors.current
     val hasContent = text.isNotBlank() || crash.isNotBlank()
@@ -4328,6 +4356,7 @@ private fun LogsPage(
         modifier = Modifier.fillMaxWidth().padding(top = 12.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp, Alignment.End),
     ) {
+        CapsuleButton(text = stringResource(R.string.logs_export), onClick = onExport, enabled = hasContent)
         CapsuleButton(text = stringResource(R.string.logs_refresh), onClick = onRefresh)
         CapsuleButton(text = stringResource(R.string.logs_clear), onClick = onClear, enabled = hasContent)
     }
@@ -4792,4 +4821,36 @@ private fun contextWindowLabel(tokens: Int): String = when {
     tokens % 1_048_576 == 0 -> "${tokens / 1_048_576}M"
     tokens % 1024 == 0 -> "${tokens / 1024}K"
     else -> tokens.toString()
+}
+
+/**
+ * 把错误日志导出成文件交给系统分享。
+ *
+ * 为什么不直接复制到剪贴板：日志动辄几百行，粘到聊天框里既难看又容易被截断。
+ * 写到 cache 里再走 FileProvider，收件方拿到的是完整文件。
+ */
+private fun exportLogs(context: android.content.Context, parts: List<String>) {
+    val body = parts.filter { it.isNotBlank() }.joinToString("\n\n").ifBlank { return }
+    val stamp = java.text.SimpleDateFormat("yyyyMMdd-HHmmss", java.util.Locale.US).format(java.util.Date())
+    val dir = java.io.File(context.cacheDir, "share").apply { mkdirs() }
+    val file = java.io.File(dir, "simplechat-log-$stamp.txt")
+    runCatching {
+        file.writeText(body)
+        val uri = androidx.core.content.FileProvider.getUriForFile(
+            context,
+            "${context.packageName}.fileprovider",
+            file,
+        )
+        val intent = android.content.Intent(android.content.Intent.ACTION_SEND).apply {
+            type = "text/plain"
+            putExtra(android.content.Intent.EXTRA_STREAM, uri)
+            putExtra(android.content.Intent.EXTRA_SUBJECT, file.name)
+            addFlags(android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        }
+        context.startActivity(
+            android.content.Intent.createChooser(intent, context.getString(R.string.logs_export)).apply {
+                addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)
+            },
+        )
+    }
 }

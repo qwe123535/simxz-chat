@@ -126,6 +126,9 @@ class ChatViewModel(
 
     init {
         viewModelScope.launch {
+            settingsStore.incognitoIds.collect { incognitoIds = it }
+        }
+        viewModelScope.launch {
             val stored = repository.findDraftTitle(DraftEntity.NewConversation)
             pendingTitle = stored
             if (currentConversationId == null && currentConversationTitle == null) {
@@ -302,6 +305,31 @@ class ChatViewModel(
         private set
 
     /** 回车直接发送（见 [StoredSettings.sendOnEnter]）。 */
+    /**
+     * 点链接走内置浏览器还是系统浏览器。
+     *
+     * 由 SettingsStore.browserModeId 驱动（"BUILTIN" / "EXTERNAL"）。
+     * 放在这里是因为 RootScreen 要读它来决定 LocalUriHandler 的实现。
+     */
+    var useBuiltinBrowser by mutableStateOf(false)
+        private set
+
+    // ── 无痕 ──────────────────────────────────────────────
+
+    /** 被标记成无痕的会话 id，抽屉里看不到它们。 */
+    var incognitoIds by mutableStateOf<Set<String>>(emptySet())
+        private set
+
+    /** 当前会话是不是无痕会话。 */
+    val isIncognitoHere: Boolean get() = currentConversationId?.let { it in incognitoIds } == true
+
+    /** 刚点了「无痕对话」，等第一条消息把会话建出来再打标记。 */
+    private var incognitoArmed by mutableStateOf(false)
+
+    /** 离开一个无痕会话时挂起，交给界面问「保留还是删除」。 */
+    var pendingIncognitoExit by mutableStateOf<String?>(null)
+        private set
+
     var sendOnEnter by mutableStateOf(false)
         private set
 
@@ -550,6 +578,7 @@ class ChatViewModel(
         ttsVoiceName = value.ttsVoiceName
         autoReadAloud = value.autoReadAloud
         sendOnEnter = value.sendOnEnter
+        useBuiltinBrowser = value.browserModeId == "BUILTIN"
         generationNotification = value.generationNotification
         appLock = value.appLock
         secureScreen = value.secureScreen
@@ -664,6 +693,7 @@ class ChatViewModel(
          * 永远写不完。流本身是按会话工作的（每处 UI 写入都核对 conversationId），
          * 切走之后它只是不再往屏幕上画，库里照常 checkpoint、照常收尾。
          */
+        noteLeavingIncognito(id)
         cancelCompaction()
         switchJob?.cancel()
 
@@ -761,6 +791,8 @@ class ChatViewModel(
     }
 
     fun newConversation() {
+        noteLeavingIncognito(null)
+        incognitoArmed = false
         searchTarget = null
         stop()
         cancelCompaction()
@@ -776,6 +808,50 @@ class ChatViewModel(
         imageSkipNotice = null
         switching = false
         settings = settings.copy(systemPrompt = "")
+    }
+
+    /** 新建一个无痕对话：建出来的会话不进抽屉，离开时问要不要留。 */
+    fun newIncognitoConversation() {
+        newConversation()
+        incognitoArmed = true
+    }
+
+    /** 保留这个无痕会话 —— 摘掉标记，它就成了普通会话。 */
+    fun keepIncognito(id: String) {
+        pendingIncognitoExit = null
+        viewModelScope.launch { settingsStore.unmarkIncognito(id) }
+    }
+
+    /** 删除这个无痕会话 —— 连同消息、附件记录一起清掉。 */
+    fun discardIncognito(id: String) {
+        pendingIncognitoExit = null
+        if (currentConversationId == id) newConversation()
+        viewModelScope.launch {
+            runCatching { repository.deleteConversations(listOf(id)) }
+            settingsStore.unmarkIncognito(id)
+        }
+    }
+
+    /** 启动时清理上次没处理完的无痕会话。 */
+    fun resolveLeftoverIncognito(keep: Boolean) {
+        val ids = incognitoIds
+        if (ids.isEmpty()) return
+        if (keep) {
+            viewModelScope.launch { ids.forEach { settingsStore.unmarkIncognito(it) } }
+        } else {
+            if (currentConversationId in ids) newConversation()
+            viewModelScope.launch {
+                runCatching { repository.deleteConversations(ids.toList()) }
+                ids.forEach { settingsStore.unmarkIncognito(it) }
+            }
+        }
+    }
+
+    private fun noteLeavingIncognito(next: String?) {
+        val leaving = currentConversationId
+        if (leaving != null && leaving != next && leaving in incognitoIds) {
+            pendingIncognitoExit = leaving
+        }
     }
 
     // ── 设置 ──────────────────────────────────────────────
@@ -983,6 +1059,10 @@ class ChatViewModel(
             }
         }
         currentConversationId = id
+        if (incognitoArmed) {
+            incognitoArmed = false
+            settingsStore.markIncognito(id)
+        }
         // 新会话刚建出来，标题也要开始观察（首条消息会触发库里自动命名）
         observeTitle(id)
         val title = repository.findConversation(id)?.title

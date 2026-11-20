@@ -242,6 +242,8 @@ fun AppConfirmDialog(
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
     destructive: Boolean = false,
+    /** 次要按钮的文字；默认「取消」。无痕对话那里它是「删除」。 */
+    dismissText: String? = null,
 ) {
     val colors = LocalChatColors.current
     Dialog(onDismissRequest = onDismiss) {
@@ -298,7 +300,7 @@ fun AppConfirmDialog(
                 contentAlignment = Alignment.Center,
             ) {
                 Text(
-                    text = stringResource(R.string.action_cancel),
+                    text = dismissText ?: stringResource(R.string.action_cancel),
                     style = MaterialTheme.typography.titleSmall,
                     color = MaterialTheme.colorScheme.onSurface,
                 )

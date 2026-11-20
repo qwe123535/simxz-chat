@@ -40,6 +40,7 @@ import androidx.compose.material3.ModalDrawerSheet
 import androidx.compose.material3.ModalNavigationDrawer
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberDrawerState
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
@@ -62,15 +63,19 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.simplechat.app.App
 import com.simplechat.app.data.PendingOpen
+import com.simplechat.app.data.LinkRouter
 import com.simplechat.app.data.StartupTrace
 import com.simplechat.app.R
 import com.simplechat.app.db.ConversationEntity
+import com.simplechat.app.ui.browser.BrowserScreen
 import com.simplechat.app.ui.chat.ChatScreen
 import com.simplechat.app.ui.chat.ChatViewModel
 import com.simplechat.app.ui.chat.HorizontalScrollRegions
@@ -251,6 +256,27 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
     )
     val sheetShape = RoundedCornerShape(topEnd = sheetCorner, bottomEnd = sheetCorner)
 
+    /*
+     * 链接去处统一在这里决定。
+     *
+     * Compose 的 Markdown 渲染、来源列表、时间线里的网页步骤都走 LocalUriHandler，
+     * 所以在顶层换一个实现，三处同时生效 —— 不用挨个文件改。
+     */
+    val defaultUriHandler = LocalUriHandler.current
+    val builtinBrowser = chatViewModel.useBuiltinBrowser
+    val appUriHandler = remember(defaultUriHandler, builtinBrowser) {
+        object : UriHandler {
+            override fun openUri(uri: String) {
+                if (builtinBrowser && LinkRouter.isWebUrl(uri)) {
+                    LinkRouter.open(uri)
+                } else {
+                    defaultUriHandler.openUri(uri)
+                }
+            }
+        }
+    }
+
+    CompositionLocalProvider(LocalUriHandler provides appUriHandler) {
     ModalNavigationDrawer(
         modifier = Modifier.onGloballyPositioned { drawerOrigin = it.boundsInRoot().topLeft }
             .pointerInput(Unit) {
@@ -349,7 +375,7 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                         )
                     } else {
                         HistoryDrawerContent(
-                            conversations = conversations,
+                            conversations = conversations.filterNot { it.id in chatViewModel.incognitoIds },
                             currentConversationId = chatViewModel.currentConversationId,
                             selectionMode = historyViewModel.selectionMode,
                             selectedIds = historyViewModel.selectedIds.toList(),
@@ -372,6 +398,10 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                             onNewConversation = {
                                 closeDrawer()
                                 chatViewModel.newConversation()
+                            },
+                            onNewIncognito = {
+                                closeDrawer()
+                                chatViewModel.newIncognitoConversation()
                             },
                         )
                     }
@@ -496,7 +526,17 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                         },
                 )
             }
+
+            /*
+             * 内置浏览器铺在最上层：它不属于任何标签页，关掉就回到原来的位置。
+             * 抽屉、标签栏、输入框都不动，所以"看完网页接着聊"是零成本的。
+             */
+            val browserUrl by LinkRouter.url.collectAsStateWithLifecycle()
+            browserUrl?.let { target ->
+                BrowserScreen(url = target, onClose = { LinkRouter.close() })
+            }
         }
+    }
     }
 
     // ── 弹窗 ─────────────────────────────────────────────
@@ -550,6 +590,38 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                 historyViewModel.deleteSelected()
                 confirmBatchDelete = false
             },
+        )
+    }
+
+    // ── 无痕：离开时问一句，启动时清一次 ───────────────────
+
+    chatViewModel.pendingIncognitoExit?.let { id ->
+        AppConfirmDialog(
+            title = stringResource(R.string.incognito_keep_title),
+            message = stringResource(R.string.incognito_keep_body),
+            confirmText = stringResource(R.string.incognito_keep_confirm),
+            dismissText = stringResource(R.string.incognito_discard_confirm),
+            destructive = false,
+            onDismiss = { chatViewModel.discardIncognito(id) },
+            onConfirm = { chatViewModel.keepIncognito(id) },
+        )
+    }
+
+    var leftoverAsked by remember { mutableStateOf(false) }
+    LaunchedEffect(chatViewModel.incognitoIds) {
+        if (!leftoverAsked && chatViewModel.incognitoIds.isNotEmpty() && chatViewModel.currentConversationId !in chatViewModel.incognitoIds) {
+            leftoverAsked = true
+        }
+    }
+    if (leftoverAsked && chatViewModel.incognitoIds.isNotEmpty()) {
+        AppConfirmDialog(
+            title = stringResource(R.string.incognito_leftover_title, chatViewModel.incognitoIds.size),
+            message = stringResource(R.string.incognito_leftover_body),
+            confirmText = stringResource(R.string.incognito_keep_confirm),
+            dismissText = stringResource(R.string.incognito_discard_confirm),
+            destructive = false,
+            onDismiss = { leftoverAsked = false; chatViewModel.resolveLeftoverIncognito(false) },
+            onConfirm = { leftoverAsked = false; chatViewModel.resolveLeftoverIncognito(true) },
         )
     }
 }

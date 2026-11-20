@@ -12,4 +12,6 @@
 <paths>
     <cache-path name="captures" path="captures/" />
     <cache-path name="shared" path="share/" />
+    <!-- 错误日志导出：errors.log 在 filesDir 根下 -->
+    <files-path name="internal" path="." />
 </paths>
