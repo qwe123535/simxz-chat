@@ -899,4 +899,7 @@
     <string name="settings_import_api_config_summary">Replaces all providers and keys</string>
     <string name="api_config_exported">API configuration exported</string>
     <string name="api_config_imported">Imported %1$d configuration(s)</string>
+    <string name="voice_hold_to_talk">Hold to talk</string>
+    <string name="voice_hold_release_send">Release to finish, swipe up to cancel</string>
+    <string name="voice_hold_release_cancel">Release to cancel</string>
 </resources>

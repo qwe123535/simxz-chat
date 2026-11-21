@@ -76,6 +76,10 @@ import com.simplechat.app.ui.common.MotionEasing
 import com.simplechat.app.ui.common.PillShape
 import com.simplechat.app.ui.common.ProgressRing
 import com.simplechat.app.ui.theme.LocalChatColors
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.foundation.gestures.awaitPointerEvent
 
 /**
  * 输入区。
@@ -135,6 +139,12 @@ fun InputBar(
     showVoice: Boolean = false,
     /** 是否正在录音 —— 按钮换成"结束"状态。 */
     voiceListening: Boolean = false,
+    /**
+     * 语音模式：输入框整体换成「按住 说话」长条。
+     *
+     * 与 [voiceListening] 是两件事：前者是"当前处于语音模式"，后者是"手指正按着"。
+     */
+    voiceMode: Boolean = false,
     onToggleVoice: () -> Unit = {},
     /**
      * 是否开启「长按输入框说话」。
@@ -170,6 +180,20 @@ fun InputBar(
      * 有字时长按要让位给**选词** —— 那是文本框自己的默认语义，抢掉它编辑会变得很难用。
      */
     val holdToTalkActive = holdToTalkEnabled && text.isEmpty()
+
+    /*
+     * 进语音模式时收起键盘：长条没有光标，键盘留着只会把界面顶上去、
+     * 还挡住下面的附件面板。
+     */
+    val focusManager = LocalFocusManager.current
+    LaunchedEffect(voiceMode) {
+        if (voiceMode) {
+            runCatching {
+                focusManager.clearFocus()
+                keyboard?.hide()
+            }
+        }
+    }
 
     // 语音说完自动发送：外部把 sendSignal 改一下，这里复用同一条发送路径
     LaunchedEffect(sendSignal) {
@@ -280,7 +304,16 @@ fun InputBar(
                     fieldValue = TextFieldValue(text = text, selection = TextRange(text.length))
                 }
             }
-            BasicTextField(
+            if (voiceMode) {
+                VoiceHoldBar(
+                    listening = voiceListening,
+                    enabled = true,
+                    onStart = onVoiceHoldStart,
+                    onStop = onVoiceHoldEnd,
+                    onCancel = onVoiceHoldCancel,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            } else BasicTextField(
                 value = fieldValue,
                 onValueChange = {
                     fieldValue = it
@@ -701,4 +734,90 @@ fun IconAction(
         iconSize = 24.dp,
         tint = tint,
     )
+}
+
+/**
+ * 「按住 说话」长条。
+ *
+ * 为什么是长条而不是小图标：说话是**持续动作**，按钮只表示"一个动作的开关"，
+ * 用户得先点开、再说、再点结束 —— 中间那一步很容易漏。长条把"按住 → 说 → 松开"
+ * 压成一个连续手势，松手即发。
+ *
+ * 上滑取消沿用语音输入的通用约定：手指上移超过 [VoiceCancelSlop] 就丢弃这次录音，
+ * 这样"说错了"不需要再去找取消按钮。
+ */
+@Composable
+private fun VoiceHoldBar(
+    listening: Boolean,
+    enabled: Boolean,
+    onStart: () -> Unit,
+    onStop: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = LocalChatColors.current
+    val density = LocalDensity.current
+    val cancelSlop = with(density) { VoiceCancelSlop.toPx() }
+    var pressing by remember { mutableStateOf(false) }
+    var cancelled by remember { mutableStateOf(false) }
+    val haptics = rememberHaptics()
+
+    val active = pressing || listening
+    val text = when {
+        cancelled -> stringResource(R.string.voice_hold_release_cancel)
+        active -> stringResource(R.string.voice_hold_release_send)
+        else -> stringResource(R.string.voice_hold_to_talk)
+    }
+    val tint = when {
+        cancelled -> colors.danger
+        active -> MaterialTheme.colorScheme.primary
+        else -> colors.placeholder
+    }
+
+    Box(
+        modifier = modifier
+            .heightIn(min = 44.dp)
+            .clip(PillShape)
+            .background(if (active) colors.fieldBackground else Color.Transparent)
+            .border(
+                width = 1.dp,
+                color = if (cancelled) colors.danger else colors.outline,
+                shape = PillShape,
+            )
+            .pointerInput(enabled) {
+                if (!enabled) return@pointerInput
+                awaitEachGesture {
+                    val down = awaitFirstDown(requireUnconsumed = false)
+                    down.consume()
+                    pressing = true
+                    cancelled = false
+                    haptics.tick()
+                    onStart()
+                    while (true) {
+                        val event = awaitPointerEvent()
+                        val change = event.changes.firstOrNull() ?: break
+                        if (change.position.y - down.position.y < -cancelSlop && !cancelled) {
+                            cancelled = true
+                            haptics.tick()
+                        }
+                        if (!change.pressed) {
+                            change.consume()
+                            break
+                        }
+                        change.consume()
+                    }
+                    pressing = false
+                    if (cancelled) onCancel() else onStop()
+                }
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = tint,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
 }

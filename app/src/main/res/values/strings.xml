@@ -900,4 +900,7 @@
     <string name="settings_import_api_config_summary">整表替换现有的服务商与 Key</string>
     <string name="api_config_exported">接口配置已导出</string>
     <string name="api_config_imported">已导入 %1$d 套接口配置</string>
+    <string name="voice_hold_to_talk">按住 说话</string>
+    <string name="voice_hold_release_send">松开 结束，上滑取消</string>
+    <string name="voice_hold_release_cancel">松开手指 取消</string>
 </resources>

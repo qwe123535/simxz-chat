@@ -264,6 +264,13 @@ fun ChatScreen(
      */
     /** 松手后是否要直接发送；以及驱动发送的信号值。 */
     var sendAfterVoice by remember { mutableStateOf(false) }
+    /*
+     * 语音模式：输入框换成「按住 说话」长条。
+     *
+     * 点麦克风进入，发完或再点一次退出。之所以不直接用"点一下开始录音"，
+     * 是因为说话是持续动作 —— 长按松手的语义比"再点一次"稳。
+     */
+    var voiceMode by remember { mutableStateOf(false) }
     var voiceSendSignal by remember { mutableStateOf(0) }
 
     var hasMicrophonePermission by remember {
@@ -324,6 +331,7 @@ fun ChatScreen(
         input = voiceBase + text
         if (sendAfterVoice) {
             sendAfterVoice = false
+            voiceMode = false
             voiceSendSignal += 1
         }
     }
@@ -1683,9 +1691,25 @@ fun ChatScreen(
                      * 「功能不见了」比「功能不可用」更难查。
                      */
                     showVoice = VoiceInputEnabled,
+                    voiceMode = voiceMode,
                     voiceListening = voice.state.listening,
-                    onToggleVoice = { if (VoiceInputEnabled) toggleVoice() },
-                    holdToTalkEnabled = VoiceInputEnabled && voice.state.available && hasMicrophonePermission,
+                    onToggleVoice = {
+                        if (VoiceInputEnabled) {
+                            if (voiceMode) {
+                                voiceMode = false
+                                sendAfterVoice = false
+                                voice.cancel()
+                            } else {
+                                voiceMode = true
+                                sendAfterVoice = false
+                                if (!hasMicrophonePermission) {
+                                    microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
+                                }
+                            }
+                        }
+                    },
+                    // 语音模式下长条自己接管手势，输入框不再挂长按
+                    holdToTalkEnabled = VoiceInputEnabled && !voiceMode && voice.state.available && hasMicrophonePermission,
                     onVoiceHoldStart = {
                         voiceBase = input
                         voice.start()

@@ -50,8 +50,8 @@ android {
         applicationId = "com.simxz.chat"
         minSdk = 26
         targetSdk = 37
-        versionCode = 13
-        versionName = "1.0.3"
+        versionCode = 14
+        versionName = "1.0.4"
         testInstrumentationRunner = "com.simplechat.app.DeviceRegression"
         vectorDrawables { useSupportLibrary = true }
     }
