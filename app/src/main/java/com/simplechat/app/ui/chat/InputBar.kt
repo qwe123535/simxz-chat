@@ -79,7 +79,6 @@ import com.simplechat.app.ui.theme.LocalChatColors
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextOverflow
-import androidx.compose.foundation.gestures.awaitPointerEvent
 
 /**
  * 输入区。
