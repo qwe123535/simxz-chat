@@ -2161,6 +2161,7 @@ class ChatViewModel(
                 toolCallParts.clear()
                 if (invocations.isEmpty()) break
                 contentBuf.clear()
+                val previousContent = contentText
                 contentText = ""
                 patch(replyId) { it.copy(content = "") }
                 val round = runToolRound(replyId, invocations)
@@ -2168,7 +2169,9 @@ class ChatViewModel(
                     failure = round.error
                     break
                 }
-                contentText = round.content
+                // 有的模型第一轮就把正文写完了，只把调用挂在后面；新一轮要是没给正文，
+                // 就退回上一轮的，别让一条写好的回复在工具轮里被清成空白。
+                contentText = round.content.ifBlank { previousContent }
                 round.calls.forEach { (index, builder) -> toolCallParts[index] = builder }
             }
 
@@ -2213,10 +2216,22 @@ class ChatViewModel(
              */
             val usage = lastUsage
 
+            /*
+             * 空白正文保护。
+             *
+             * 见过的情况：模型把预算全花在思考上（`finish_reason = length`）、
+             * 或者服务端在思考之后直接收尾，正文一个字都没有 —— 界面上就是
+             * "思考完了，然后一片空白"，用户既不知道发生了什么，也没有重试入口。
+             * 这里把它标成错误：气泡会变红、带上原因，并给出重试。
+             */
+            val emptyAnswer = status == MessageStatus.DONE && finalContent.isBlank()
+            val finalStatus = if (emptyAnswer) MessageStatus.ERROR else status
+            val finalError = if (emptyAnswer) Res.get(R.string.error_empty_answer) else failure
+
             patch(replyId) {
                 it.copy(
-                    status = status,
-                    errorMessage = failure,
+                    status = finalStatus,
+                    errorMessage = finalError,
                     ttftMs = ttft,
                     tps = tps,
                     reasoningSeconds = thinkingMs?.let { thinkingSeconds(it) },
@@ -2236,8 +2251,8 @@ class ChatViewModel(
                         id = replyId,
                         content = finalContent,
                         reasoning = finalReasoning,
-                        status = status,
-                        errorMessage = failure,
+                        status = finalStatus,
+                        errorMessage = finalError,
                         ttftMs = ttft,
                         tps = tps,
                         thinkingMs = thinkingMs,

@@ -941,6 +941,80 @@ class SettingsStore(
 
 
 
+    /**
+     * 把当前所有接口配置（含**明文** Key）导出成 JSON。
+     *
+     * 明文是有意的：密文绑在本机 Keystore 上，换机 / 卸载重装之后解不开，
+     * 那样导出的文件对"换台机器接着用"这个唯一用途毫无价值。
+     */
+    suspend fun exportApiConfig(): String {
+        val prefs = preferences.data.first()
+        val rows = prefs[Keys.PROFILES]?.let(::decodeApiProfiles) ?: profileRows(prefs)
+        return apiConfigJson.encodeToString(
+            ApiConfigFile(
+                exportedAt = System.currentTimeMillis(),
+                activeProfileId = prefs[Keys.ACTIVE_PROFILE],
+                profiles = rows.map { profile ->
+                    ApiConfigProfile(
+                        id = profile.id,
+                        name = profile.name,
+                        providerId = profile.providerId,
+                        baseUrl = profile.baseUrl,
+                        modelId = profile.modelId,
+                        apiKey = runCatching { SecretBox.decrypt(profile.apiKeyEncrypted) }.getOrDefault(""),
+                        apiStyleId = profile.apiStyleId,
+                        modelIds = profile.modelIds,
+                        reasoningLevelId = profile.reasoningLevelId,
+                        temperature = profile.temperature,
+                        topP = profile.topP,
+                        maxTokens = profile.maxTokens,
+                        webSearch = profile.webSearch,
+                    )
+                },
+            ),
+        )
+    }
+
+    /**
+     * 导入接口配置：整表替换，并把「当时正在用的那套」切成当前。
+     *
+     * 整表替换而不是合并：同名不同 key 的情况没法猜谁对，混在一起只会更难查。
+     * 返回导入的套数。
+     */
+    suspend fun importApiConfig(text: String): Int {
+        val file = runCatching { apiConfigJson.decodeFromString<ApiConfigFile>(text) }
+            .getOrElse { throw AppTextException(com.simplechat.app.R.string.api_config_invalid) }
+        if (file.format != ApiConfigFile.FORMAT) {
+            throw AppTextException(com.simplechat.app.R.string.api_config_invalid)
+        }
+        if (file.profiles.isEmpty()) return 0
+        preferences.edit { prefs ->
+            val rows = file.profiles.map { profile ->
+                ApiProfile(
+                    id = profile.id.ifBlank { java.util.UUID.randomUUID().toString() },
+                    name = profile.name,
+                    providerId = profile.providerId,
+                    baseUrl = profile.baseUrl,
+                    modelId = profile.modelId,
+                    apiKeyEncrypted = if (profile.apiKey.isBlank()) ""
+                    else SecretBox.encrypt(profile.apiKey).orEmpty(),
+                    apiStyleId = profile.apiStyleId,
+                    modelIds = profile.modelIds,
+                    reasoningLevelId = profile.reasoningLevelId,
+                    temperature = profile.temperature,
+                    topP = profile.topP,
+                    maxTokens = profile.maxTokens,
+                    webSearch = profile.webSearch,
+                    lastUsedAt = System.currentTimeMillis(),
+                )
+            }
+            prefs[Keys.PROFILES] = apiProfileJson.encodeToString(rows)
+            val active = rows.firstOrNull { it.id == file.activeProfileId } ?: rows.first()
+            activate(prefs, active)
+        }
+        return file.profiles.size
+    }
+
     /** Seed the registry in one edit, preserving the existing active configuration and encrypted key. */
     suspend fun migrateApiProfiles() { preferences.edit { ensureProfiles(it) } }
 

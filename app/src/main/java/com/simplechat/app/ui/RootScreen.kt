@@ -55,6 +55,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.input.pointer.pointerInput
@@ -428,6 +429,26 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
              */
             val imeVisible = WindowInsets.ime.getBottom(LocalDensity.current) > 0
 
+            /*
+             * 进入动画：首帧从「略低一点 + 全透明」淡入到位。
+             *
+             * 只做一次（`LaunchedEffect(Unit)`），不参与任何状态变化 ——
+             * 切标签有自己的淡入淡出，两套动画叠在一起会打架。
+             * 幅度刻意很小（14dp / 260ms）：这是"落地"的手感，不是表演。
+             */
+            var entered by remember { mutableStateOf(false) }
+            LaunchedEffect(Unit) { entered = true }
+            val enterAlpha by animateFloatAsState(
+                targetValue = if (entered) 1f else 0f,
+                animationSpec = tween(260, easing = MotionEasing),
+                label = "enterAlpha",
+            )
+            val enterShift by animateFloatAsState(
+                targetValue = if (entered) 0f else 14f,
+                animationSpec = tween(260, easing = MotionEasing),
+                label = "enterShift",
+            )
+
             Column(modifier = Modifier.fillMaxSize()) {
                 Box(
                     modifier = Modifier
@@ -447,6 +468,10 @@ fun RootScreen(chat: ChatViewModel? = null, history: HistoryViewModel? = null) {
                 ) {
                     AnimatedContent(
                         targetState = route,
+                        modifier = Modifier.graphicsLayer {
+                            alpha = enterAlpha
+                            translationY = enterShift.dp.toPx()
+                        },
                         transitionSpec = {
                             /*
                              * 两个标签是**平级**的，不再用左右推入。

@@ -890,4 +890,13 @@
     <string name="incognito_banner">Incognito</string>
     <string name="logs_export">Export</string>
     <string name="input_export_deepseek">DeepSeek format (.zip)</string>
+    <string name="error_empty_answer">This turn returned no text (thinking may have used the whole output budget, or the server ended early). Tap retry to try again.</string>
+    <string name="api_config_invalid">This file is not an API configuration, or it is damaged.</string>
+    <string name="settings_api_config_group">API configuration</string>
+    <string name="settings_export_api_config">Export API configuration</string>
+    <string name="settings_export_api_config_summary">Includes API keys in plain text; import it after reinstalling</string>
+    <string name="settings_import_api_config">Import API configuration</string>
+    <string name="settings_import_api_config_summary">Replaces all providers and keys</string>
+    <string name="api_config_exported">API configuration exported</string>
+    <string name="api_config_imported">Imported %1$d configuration(s)</string>
 </resources>

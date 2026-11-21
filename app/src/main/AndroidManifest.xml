@@ -17,21 +17,21 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
 
     <!--
-        语音输入（录音 → 系统识别）**仍然下线**，所以这里不声明 `RECORD_AUDIO`，
-        也不声明识别服务的 `<queries>` —— 否则装完之后系统设置里会挂着一个
-        用不上的"麦克风"权限。
+        语音输入（录音 → 系统识别）。这是本项目**唯一**申请的运行时权限：
+        麦克风只在按住说话时用到，别处一律不碰。
 
-        朗读（TTS）已开启：Android 11+ 的包可见性要求显式声明 TTS 服务的 intent，
-        否则 `TextToSpeech` 可能找不到引擎、读不出音色列表（见 `FeatureFlags`）。
-        重新开启语音输入时，把下面这两行也加回来：
-        ```xml
-        <uses-permission android:name="android.permission.RECORD_AUDIO" />
-        <intent><action android:name="android.speech.RecognitionService" /></intent>
-        ```
+        `<queries>` 里的 `RecognitionService` 是 Android 11+ 的包可见性要求：
+        不声明的话 `SpeechRecognizer.isRecognitionAvailable()` 会直接返回 false，
+        表现为"点了麦克风没反应"（见 `FeatureFlags`）。
     -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <queries>
         <intent>
             <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+        <intent>
+            <action android:name="android.speech.RecognitionService" />
         </intent>
     </queries>
 

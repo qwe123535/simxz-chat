@@ -1,10 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  自适应图标底：#F3F5F8。
+  自适应图标底：#E9EFF5。
 
-  取的是 ICON.png 里气泡本体的颜色。前景层里的图形四周是透明的，
-  背景用**同一个色**，启动器把外圈裁成圆 / 方 / 水滴时接缝就看不出来 ——
-  看起来是一整块浅底 + 一个蓝尾巴的气泡，而不是"一张图贴在色块上"。
+  取的是当前前景图左上角像素（#E9EFF5）。前景整幅铺满，启动器把外圈裁成
+  圆 / 方 / 水滴时，边缘接缝就看不出来 —— 看起来是一整块底，而不是
+  "一张图贴在色块上"。换图标时记得同步这个值。
 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
@@ -12,6 +12,6 @@
     android:viewportWidth="108"
     android:viewportHeight="108">
     <path
-        android:fillColor="#FFF3F5F8"
+        android:fillColor="#FFE9EFF5"
         android:pathData="M0,0h108v108h-108z" />
 </vector>

@@ -20,7 +20,7 @@ package com.simplechat.app.ui.common
  * 把 [VoiceInputEnabled] 改回 `true`，并把 `AndroidManifest.xml` 里的
  * `RECORD_AUDIO` 与识别服务的 `<queries>` 加回去 —— 少一样都会变成"点了没反应"。
  */
-const val VoiceInputEnabled = false
+const val VoiceInputEnabled = true
 
 /**
  * 朗读（系统 TTS）。

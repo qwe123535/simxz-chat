@@ -891,4 +891,13 @@
     <string name="incognito_banner">无痕对话</string>
     <string name="logs_export">导出</string>
     <string name="input_export_deepseek">DeepSeek 格式 (.zip)</string>
+    <string name="error_empty_answer">这一轮没有返回正文（可能思考占满了输出上限，或服务端提前结束）。点重试再试一次。</string>
+    <string name="api_config_invalid">这个文件不是接口配置，或格式已损坏。</string>
+    <string name="settings_api_config_group">接口配置</string>
+    <string name="settings_export_api_config">导出接口配置</string>
+    <string name="settings_export_api_config_summary">包含 API Key（明文），换机 / 重装后导回即可</string>
+    <string name="settings_import_api_config">导入接口配置</string>
+    <string name="settings_import_api_config_summary">整表替换现有的服务商与 Key</string>
+    <string name="api_config_exported">接口配置已导出</string>
+    <string name="api_config_imported">已导入 %1$d 套接口配置</string>
 </resources>

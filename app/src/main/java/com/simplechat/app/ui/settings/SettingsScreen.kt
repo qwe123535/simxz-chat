@@ -635,6 +635,52 @@ fun SettingsScreen(
         archiveProgress.value = 1f
     }
 
+    /*
+     * 接口配置的导出 / 导入。
+     *
+     * 单独一对入口，不并进「全部数据」：这份文件带明文 Key，
+     * 混在聊天记录备份里会让人在不知情的情况下把钥匙一起发出去。
+     */
+    val apiConfigExportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json"),
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val text = store.exportApiConfig()
+                withContext(Dispatchers.IO) {
+                    context.contentResolver.openOutputStream(uri, "wt")?.use { it.write(text.toByteArray()) }
+                        ?: error(Res.get(R.string.error_write_failed))
+                }
+                dataMessage = Res.get(R.string.api_config_exported)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                dataMessage = Res.get(R.string.export_failed, error.userMessage())
+            }
+        }
+    }
+
+    val apiConfigImportLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.OpenDocument(),
+    ) { uri: Uri? ->
+        if (uri == null) return@rememberLauncherForActivityResult
+        scope.launch {
+            try {
+                val text = withContext(Dispatchers.IO) {
+                    context.contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+                        ?: error(Res.get(R.string.import_read_failed))
+                }
+                val count = store.importApiConfig(text)
+                dataMessage = Res.get(R.string.api_config_imported, count)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                dataMessage = Res.get(R.string.error_import_failed, error.userMessage())
+            }
+        }
+    }
+
     val crashLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/plain")) {
         uri: Uri? -> savePreparedExport(uri)
     }
@@ -776,6 +822,8 @@ fun SettingsScreen(
                             exportSaving = archiveSaving,
                             onExport = { startExport() },
                             onExportArchive = { startArchiveExport() },
+                            onExportApiConfig = { apiConfigExportLauncher.launch("simxz-chat-api.json") },
+                            onImportApiConfig = { apiConfigImportLauncher.launch(arrayOf("application/json", "text/plain", "*/*")) },
                             onExportReport = { startReportExport() },
                             onExportCrash = { startCrashExport() },
                             onImport = {
@@ -2432,6 +2480,8 @@ private fun DataPage(
     exportSaving: Boolean = false,
     onExport: () -> Unit,
     onExportArchive: () -> Unit,
+    onExportApiConfig: () -> Unit,
+    onImportApiConfig: () -> Unit,
     onExportReport: () -> Unit,
     onExportCrash: () -> Unit,
     onImport: () -> Unit,
@@ -2460,6 +2510,27 @@ private fun DataPage(
             hint = stringResource(R.string.settings_import_all_summary),
             onClick = onImport,
             // 导入期间不能重复点：同一份包并发解析会把内存和数据库都顶爆
+            enabled = !reading && progress == null && exportProgress == null,
+        )
+    }
+
+    /*
+     * 接口配置单独一组：这一份带明文 API Key，语义与上面的聊天记录备份完全不同，
+     * 混在同一张卡里会让人以为「导出全部」也带上了钥匙。
+     */
+    SettingsSectionLabel(stringResource(R.string.settings_api_config_group))
+    SettingsCard {
+        SettingsActionRow(
+            label = stringResource(R.string.settings_export_api_config),
+            hint = stringResource(R.string.settings_export_api_config_summary),
+            onClick = onExportApiConfig,
+            enabled = !reading && progress == null && exportProgress == null,
+        )
+        RowDivider()
+        SettingsActionRow(
+            label = stringResource(R.string.settings_import_api_config),
+            hint = stringResource(R.string.settings_import_api_config_summary),
+            onClick = onImportApiConfig,
             enabled = !reading && progress == null && exportProgress == null,
         )
     }
