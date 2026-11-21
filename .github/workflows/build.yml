@@ -92,11 +92,24 @@ jobs:
           mkdir -p out
           cp app/build/outputs/apk/release/*.apk out/simple-chat-release.apk || true
           cp app/build/outputs/apk/debug/*.apk out/simple-chat-debug.apk || true
-          ls -lh out
+
+          # 校验和跟着包一起发：从网盘、第三方镜像、转发链接拿到的包，
+          # 只要对一下 sha256 就知道是不是原件。
+          cd out
+          for f in *.apk; do
+            [ -e "$f" ] || continue
+            sha256sum "$f" > "$f.sha256"
+          done
+          sha256sum *.apk > SHA256SUMS.txt
+          cat SHA256SUMS.txt
+          ls -lh .
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
           name: simple-chat-apk
-          path: out/*.apk
+          path: |
+            out/*.apk
+            out/*.sha256
+            out/SHA256SUMS.txt
           retention-days: 14
