@@ -816,6 +816,8 @@ fun ConversationSettingsPanelContent(
     onExportMarkdown: (() -> Unit)? = null,
     onExportJson: (() -> Unit)? = null,
     onExportText: (() -> Unit)? = null,
+    /** 导出为 DeepSeek 官方格式的 zip。 */
+    onExportDeepSeek: (() -> Unit)? = null,
     exportHint: String? = null,
 ) {
     val colors = LocalChatColors.current
@@ -1097,6 +1099,10 @@ fun ConversationSettingsPanelContent(
                         AppMenuItem(stringResource(R.string.input_export_text), AppIcons.Feather) {
                             exportMenuOpen = false
                             onExportText?.invoke()
+                        }
+                        AppMenuItem(stringResource(R.string.input_export_deepseek), AppIcons.Download) {
+                            exportMenuOpen = false
+                            onExportDeepSeek?.invoke()
                         }
                         AppMenuItem(stringResource(R.string.input_export_json), AppIcons.Database) {
                             exportMenuOpen = false

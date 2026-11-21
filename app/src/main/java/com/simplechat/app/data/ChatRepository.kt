@@ -897,6 +897,18 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
      * 贴进短信、笔记、记事本这类不认 Markdown 的地方时，那些符号全是噪音 ——
      * 而"要一份能直接读的稿子"是 Markdown 导出最常见的用途，干脆给它一个干净的版本。
      */
+    /**
+     * 导出为 **DeepSeek 官方格式**的 zip（见 [DeepSeekExport]）。
+     *
+     * 要 Context 是因为图片可能落盘在 `filesDir/attachments` 下，得读原件塞进归档。
+     */
+    suspend fun exportDeepSeekZip(context: android.content.Context, file: File, conversationId: String) =
+        withContext(Dispatchers.IO) {
+            val row = checkNotNull(conversations.findById(conversationId)) { "Conversation no longer exists" }
+            val all = messages.getAllFor(conversationId)
+            file.outputStream().buffered().use { DeepSeekExport.write(context, it, row, all) }
+        }
+
     suspend fun exportText(file: File, conversationId: String) = withContext(Dispatchers.IO) {
         db.withTransaction {
             val row = checkNotNull(conversations.findById(conversationId)) { "Conversation no longer exists" }

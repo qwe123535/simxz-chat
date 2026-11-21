@@ -1,6 +1,6 @@
 # simxz-chat
 
-[![Version](https://img.shields.io/badge/version-0.8-blue)](https://github.com/qwe123535/simxz-chat/releases)
+[![Version](https://img.shields.io/badge/version-0.9-blue)](https://github.com/qwe123535/simxz-chat/releases)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Status](https://img.shields.io/badge/status-非长期维护-orange)](#维护状态)
 
@@ -66,7 +66,7 @@
 
 ## 下载
 
-从 [Releases](https://github.com/qwe123535/simxz-chat/releases) 下载 APK。当前版本 **0.8**。
+从 [Releases](https://github.com/qwe123535/simxz-chat/releases) 下载 APK。当前版本 **0.9**。
 
 包名 `com.simxz.chat`，可以和官方版共存。APK 用 debug 签名（没有配置发布证书），**装之前如果装过同包名的旧版本，要先卸载**。
 

@@ -889,4 +889,5 @@
     <string name="incognito_leftover_body">Keep them? Discarding deletes their messages for good.</string>
     <string name="incognito_banner">Incognito</string>
     <string name="logs_export">Export</string>
+    <string name="input_export_deepseek">DeepSeek format (.zip)</string>
 </resources>

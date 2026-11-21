@@ -1679,6 +1679,11 @@ class ChatViewModel(
     suspend fun exportCurrentConversationText(): String? =
         currentConversationId?.let { repository.exportConversationText(it) }
 
+    /** 把当前会话导出成 DeepSeek 官方格式的 zip。 */
+    suspend fun exportConversationDeepSeek(context: android.content.Context, file: java.io.File, conversationId: String) {
+        repository.exportDeepSeekZip(context, file, conversationId)
+    }
+
     /** 把当前会话写成 `.txt` 文件（导出菜单用）。 */
     suspend fun exportConversationTextFile(file: java.io.File, conversationId: String) {
         repository.exportText(file, conversationId)

@@ -131,7 +131,7 @@ private enum class InputPanelState { NONE, THINKING, STATS, SETTINGS, ATTACH }
  * 用枚举而不是一串 Boolean：三选一的入口再加一个格式时，
  * `exportTo(uri, markdown = false)` 那种调用会立刻变成"第三个参数传什么"的猜谜。
  */
-private enum class ExportFormat { JSON, MARKDOWN, TEXT }
+private enum class ExportFormat { JSON, MARKDOWN, TEXT, DEEPSEEK }
 
 /** 切换会话的淡入时长。**快** —— 慢一点就从"过渡"变成"等待"了。 */
 private const val SwitchFadeInMs = 160
@@ -458,6 +458,7 @@ fun ChatScreen(
                     ExportFormat.JSON -> vm.exportConversationFile(file, id, markdown = false)
                     ExportFormat.MARKDOWN -> vm.exportConversationFile(file, id, markdown = true)
                     ExportFormat.TEXT -> vm.exportConversationTextFile(file, id)
+                    ExportFormat.DEEPSEEK -> vm.exportConversationDeepSeek(context, file, id)
                 }
                 com.simplechat.app.data.copyExportFile(file, {
                     context.contentResolver.openOutputStream(uri, "wt") ?: error(Res.get(R.string.error_write_failed))
@@ -506,6 +507,12 @@ fun ChatScreen(
         ActivityResultContracts.CreateDocument("text/plain"),
     ) { uri ->
         if (uri != null) scope.launch { exportTo(uri, ExportFormat.TEXT) }
+    }
+
+    val exportDeepSeekLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.CreateDocument("application/zip"),
+    ) { uri ->
+        if (uri != null) scope.launch { exportTo(uri, ExportFormat.DEEPSEEK) }
     }
 
     // ── 附件 ──────────────────────────────────────────────
@@ -1808,6 +1815,14 @@ fun ChatScreen(
                             {
                                 exportHint = null
                                 exportTextLauncher.launch(exportFileName("txt"))
+                            }
+                        } else {
+                            null
+                        },
+                        onExportDeepSeek = if (vm.currentConversationId != null) {
+                            {
+                                exportHint = null
+                                exportDeepSeekLauncher.launch(exportFileName("zip"))
                             }
                         } else {
                             null
