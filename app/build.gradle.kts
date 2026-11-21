@@ -22,7 +22,24 @@ val keystoreProperties = Properties().apply {
         keystorePropertiesFile.inputStream().use { load(it) }
     }
 }
-val hasReleaseSigning = keystorePropertiesFile.exists()
+
+/*
+ * CI 用环境变量提供同一份密钥。
+ *
+ * 为什么要固定密钥：debug 签名每次构建都会重新生成 —— GitHub Actions 的 runner
+ * 是干净的，每跑一次就是一个新证书。结果就是"上一版装不上，必须先卸载"。
+ * 固定成一把 release 密钥之后，同一个包名的后续版本都能直接覆盖安装。
+ *
+ * 密钥本体放在仓库 Secret（`KEYSTORE_BASE64`），不进口版本库：
+ * 公开仓库里放密钥等于允许任何人给这个包名签一个"更新"。
+ */
+val envStoreFile: String? = System.getenv("SIMXZ_KEYSTORE_FILE")
+val hasEnvSigning = !envStoreFile.isNullOrBlank() &&
+    !System.getenv("SIMXZ_KEYSTORE_PASSWORD").isNullOrBlank() &&
+    !System.getenv("SIMXZ_KEY_ALIAS").isNullOrBlank() &&
+    rootProject.file(envStoreFile).exists()
+
+val hasReleaseSigning = keystorePropertiesFile.exists() || hasEnvSigning
 
 android {
     namespace = "com.simplechat.app"
@@ -33,8 +50,8 @@ android {
         applicationId = "com.simxz.chat"
         minSdk = 26
         targetSdk = 37
-        versionCode = 10
-        versionName = "1.0"
+        versionCode = 11
+        versionName = "1.0.1"
         testInstrumentationRunner = "com.simplechat.app.DeviceRegression"
         vectorDrawables { useSupportLibrary = true }
     }
@@ -42,10 +59,17 @@ android {
     signingConfigs {
         if (hasReleaseSigning) {
             create("release") {
-                storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
-                storePassword = keystoreProperties.getProperty("storePassword")
-                keyAlias = keystoreProperties.getProperty("keyAlias")
-                keyPassword = keystoreProperties.getProperty("keyPassword")
+                if (keystorePropertiesFile.exists()) {
+                    storeFile = rootProject.file(keystoreProperties.getProperty("storeFile"))
+                    storePassword = keystoreProperties.getProperty("storePassword")
+                    keyAlias = keystoreProperties.getProperty("keyAlias")
+                    keyPassword = keystoreProperties.getProperty("keyPassword")
+                } else {
+                    storeFile = rootProject.file(envStoreFile!!)
+                    storePassword = System.getenv("SIMXZ_KEYSTORE_PASSWORD")
+                    keyAlias = System.getenv("SIMXZ_KEY_ALIAS")
+                    keyPassword = System.getenv("SIMXZ_KEY_PASSWORD")
+                }
             }
         }
     }
