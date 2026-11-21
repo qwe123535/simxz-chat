@@ -637,7 +637,7 @@
     <!-- ── 语音输入（系统识别服务） ───────────────────────── -->
     <string name="voice_input">语音输入</string>
     <string name="voice_stop">结束录音</string>
-    <string name="voice_unavailable">当前设备没有可用的语音识别服务</string>
+    <string name="voice_unavailable">系统里没有可用的语音识别服务：去系统设置里启用语音助手 / 语音输入后再试</string>
     <string name="voice_empty">没有听清，请再说一次</string>
     <string name="voice_error_audio">录音出错，请重试</string>
     <string name="voice_error_permission">没有麦克风权限，无法语音输入</string>

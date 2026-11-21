@@ -1,7 +1,11 @@
 package com.simplechat.app.ui.chat
 
 import android.Manifest
+import android.app.Activity
+import android.content.ActivityNotFoundException
+import android.content.Intent
 import android.content.pm.PackageManager
+import android.speech.RecognizerIntent
 import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
@@ -293,6 +297,49 @@ fun ChatScreen(
     }
 
     /** 点麦克风：没在录 → 先确认权限再开录；正在录 → 收尾并出结果。 */
+    /*
+     * 兜底通道：直接用系统识别界面。
+     *
+     * `SpeechRecognizer.isRecognitionAvailable()` 在某些 ROM 上会返回 false，
+     * 但系统里其实装了能处理 `ACTION_RECOGNIZE_SPEECH` 的界面（厂商语音助手常见）。
+     * 那种情况下走这个 Intent，比"麦克风直接消失"有用得多。
+     */
+    val voiceFallbackLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        if (result.resultCode != Activity.RESULT_OK) {
+            sendAfterVoice = false
+            return@rememberLauncherForActivityResult
+        }
+        val text = result.data
+            ?.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS)
+            ?.firstOrNull()
+            ?.trim()
+            .orEmpty()
+        if (text.isEmpty()) {
+            speechError = Res.get(R.string.voice_empty)
+            sendAfterVoice = false
+            return@rememberLauncherForActivityResult
+        }
+        input = voiceBase + text
+        if (sendAfterVoice) {
+            sendAfterVoice = false
+            voiceSendSignal += 1
+        }
+    }
+
+    fun launchVoiceFallback() {
+        val intent = Intent(RecognizerIntent.ACTION_RECOGNIZE_SPEECH).apply {
+            putExtra(RecognizerIntent.EXTRA_LANGUAGE_MODEL, RecognizerIntent.LANGUAGE_MODEL_FREE_FORM)
+            putExtra(RecognizerIntent.EXTRA_PARTIAL_RESULTS, false)
+        }
+        try {
+            voiceFallbackLauncher.launch(intent)
+        } catch (_: ActivityNotFoundException) {
+            speechError = Res.get(R.string.voice_unavailable)
+        }
+    }
+
     fun toggleVoice() {
         if (voice.state.listening) {
             voice.stop()
@@ -301,7 +348,8 @@ fun ChatScreen(
         // 用可观察的那份状态，避免"设置里刚授权过、这里还认为没权限"
         if (hasMicrophonePermission) {
             voiceBase = input
-            voice.start()
+            // 没有常驻识别服务就交给系统识别界面，别让用户对着一个消失的按钮发呆
+            if (voice.state.available) voice.start() else launchVoiceFallback()
         } else {
             microphonePermission.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -1629,7 +1677,12 @@ fun ChatScreen(
                      * 松手即发）全部保留，重新开启只需把常量改回 true，
                      * 不用再翻一遍这里。
                      */
-                    showVoice = VoiceInputEnabled && voice.state.available,
+                    /*
+                     * 麦克风常驻显示：设备没有识别服务时它仍然出现，点一下会给出
+                     * 明确原因（或者走系统识别界面），而不是悄悄消失 ——
+                     * 「功能不见了」比「功能不可用」更难查。
+                     */
+                    showVoice = VoiceInputEnabled,
                     voiceListening = voice.state.listening,
                     onToggleVoice = { if (VoiceInputEnabled) toggleVoice() },
                     holdToTalkEnabled = VoiceInputEnabled && voice.state.available && hasMicrophonePermission,

@@ -633,7 +633,7 @@
     <!-- ── Voice input (system recognizer) ──────────────── -->
     <string name="voice_input">Voice input</string>
     <string name="voice_stop">Stop recording</string>
-    <string name="voice_unavailable">No speech recognition service is available on this device</string>
+    <string name="voice_unavailable">No speech recognition service found: enable a voice assistant or voice input in system settings and try again</string>
     <string name="voice_empty">Didn\'t catch that, please try again</string>
     <string name="voice_error_audio">Recording failed, please retry</string>
     <string name="voice_error_permission">Microphone permission is required for voice input</string>
