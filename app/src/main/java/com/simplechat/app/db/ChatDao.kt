@@ -240,6 +240,24 @@ interface MessageDao {
     )
     suspend fun exportHeader(id: String): MessageEntity?
 
+    /**
+     * 一个会话里所有消息的**骨架**，字段与 [exportHeader] 完全一致。
+     *
+     * 导出时先一次取齐，再按 id 逐条补正文 —— 逐条查 header 是每个会话里
+     * 最没必要的开销：N 条消息就是 N 次全表定位。
+     */
+    @Query(
+        """
+        SELECT id, conversationId, parentId, variantIndex, active, role,
+               '' AS content, NULL AS attachments, NULL AS reasoning,
+               status, NULL AS errorMessage,
+               model, excluded, thinkingMs, ttftMs, tps, tokens_in, tokens_out,
+               NULL AS timeline, stopReason, createdAt
+        FROM messages WHERE conversationId = :conversationId
+        """,
+    )
+    suspend fun exportHeaders(conversationId: String): List<MessageEntity>
+
     @Query(
         """
         SELECT substr(CAST(content AS BLOB), :start, :chunkBytes) AS content,

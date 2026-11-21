@@ -864,15 +864,25 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
             val linkedPresetIds = headers.flatMap { it.enabledPresetIds }.toSet()
             val presetRows = presets.getAll().filter { onlyConversation == null || it.id in linkedPresetIds }.map { it.toBackup() }
             var written = 0
-            file.outputStream().buffered().writer(Charsets.UTF_8).use { writer ->
-                writeBackupStream(writer, System.currentTimeMillis(), headers, presetRows,
-                    attachmentSource = { AttachmentFiles.open(context, it) }) { id, sink ->
-                    for (messageId in messages.idsFor(id)) {
-                        currentCoroutineContext().ensureActive()
-                        val message = readMessageForExport(messageId).toBackup()
-                        sink(message)
-                        written++
-                        onProgress(0.99f * written / total.coerceAtLeast(1))
+            // 256 KB 缓冲：默认 8 KB 时，大包里光是 write 系统调用就是几万次
+            java.io.BufferedOutputStream(file.outputStream(), 1 shl 18).use { buffered ->
+                java.io.OutputStreamWriter(buffered, Charsets.UTF_8).use { writer ->
+                    writeBackupStream(writer, System.currentTimeMillis(), headers, presetRows,
+                        attachmentSource = { AttachmentFiles.open(context, it) }) { id, sink ->
+                        // 骨架一次取齐，正文再逐条补：省掉每条消息一次全表定位
+                        val skeletons = messages.exportHeaders(id).associateBy { it.id }
+                        for (messageId in messages.idsFor(id)) {
+                            currentCoroutineContext().ensureActive()
+                            val skeleton = skeletons[messageId] ?: readMessageForExport(messageId)
+                            val message = restoreExportMessage(skeleton, ExportTextChunkBytes) { start ->
+                                checkNotNull(messages.exportTextChunk(messageId, start, ExportTextChunkBytes)) {
+                                    "Missing export message: $messageId"
+                                }
+                            }.toBackup()
+                            sink(message)
+                            written++
+                            onProgress(0.99f * written / total.coerceAtLeast(1))
+                        }
                     }
                 }
             }
@@ -992,7 +1002,7 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
                     onProgress(0.8f + 0.2f * documentsWritten / rows.size.coerceAtLeast(1))
                 }
             }
-            file.outputStream().buffered().use { output ->
+            java.io.BufferedOutputStream(file.outputStream(), 1 shl 18).use { output ->
                 ChatArchive.writeTo(
                     output = output,
                     exportedAt = exportedAt,
@@ -1001,11 +1011,21 @@ class ChatRepository(private val db: AppDatabase, private val context: Context) 
                     presetCount = presetRows.size,
                     documents = documents,
                 ) { backupOutput ->
-                    writeBackupStream(backupOutput.writer(Charsets.UTF_8).buffered(), exportedAt, headers, presetRows,
+                    val backupWriter = java.io.OutputStreamWriter(
+                        java.io.BufferedOutputStream(backupOutput, 1 shl 16), Charsets.UTF_8,
+                    )
+                    writeBackupStream(backupWriter, exportedAt, headers, presetRows,
                         attachmentSource = { AttachmentFiles.open(context, it) }) { id, sink ->
+                        // 骨架一次取齐（见 exportBackup 里的同款注释）
+                        val skeletons = messages.exportHeaders(id).associateBy { it.id }
                         for (messageId in messages.idsFor(id)) {
                             currentCoroutineContext().ensureActive()
-                            val message = readMessageForExport(messageId).toBackup()
+                            val skeleton = skeletons[messageId] ?: readMessageForExport(messageId)
+                            val message = restoreExportMessage(skeleton, ExportTextChunkBytes) { start ->
+                                checkNotNull(messages.exportTextChunk(messageId, start, ExportTextChunkBytes)) {
+                                    "Missing export message: $messageId"
+                                }
+                            }.toBackup()
                             // Materialize only this message's images; never retain all images in the archive.
                             sink(message)
                             written++
